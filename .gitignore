@@ -130,3 +130,6 @@ desktop.ini
 
 *.log
 companion/*.log
+
+# Original CrowPanel vendor library bundle
+CrowPanel Firmware/librariesAdvance5.0/
