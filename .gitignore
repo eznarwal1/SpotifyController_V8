@@ -1,0 +1,132 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# PlatformIO
+.pio/
+**/.pio/
+.pioenvs/
+.piolibdeps/
+
+# VS Code generated files
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# Downloaded libraries and dependency folders
+libraries/
+**/libraries/
+libdeps/
+**/libdeps/
+
+# CrowPanel examples and extras
+CrowPanel Firmware/**/examples/
+CrowPanel Firmware/**/extras/
+CrowPanel Firmware/**/docs/
+
+# Build output
+build/
+**/build/
+dist/
+**/dist/
+*.bin
+*.elf
+*.map
+*.hex
+*.o
+*.a
+*.d
+
+# Runtime/cache files
+cache/
+**/cache/
+artwork_cache/
+**/artwork_cache/
+*.log
+v8_settings.json
+
+# Secrets
+.env
+.env.*
+config.local.py
+secrets.py
+credentials.json
+token.json
+
+# Archives and temporary files
+*.zip
+*.7z
+*.rar
+*.tmp
+*.bak
+*~
+
+# Operating system files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Python virtual environments
+.venv/
+**/.venv/
+venv/
+**/venv/
+
+# PlatformIO project-managed libraries
+CrowPanel Firmware/CrowPanelSpotify V2/.pio/
+CrowPanel Firmware/CrowPanelSpotify V2/.vscode/
+
+# Python virtual environment
+**/.venv/
+**/venv/
+**/__pycache__/
+*.pyc
+*.pyd
+
+# PlatformIO generated files
+**/.pio/
+**/.pioenvs/
+**/.piolibdeps/
+
+# Local firmware-library examples and documentation
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/examples/
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/example/
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/docs/
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/doc/
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/extras/
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/tests/
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/test/
+
+# Nested library repository files
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/.git/
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/.github/
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/.vscode/
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/.gitignore
+CrowPanel Firmware/CrowPanelSpotify V2/lib/**/.gitattributes
+
+# Firmware build output
+**/build/
+*.bin
+*.elf
+*.map
+*.hex
+*.o
+*.a
+*.d
+
+# Runtime and temporary files
+*.log
+*.zip
+*.tmp
+*.bak
+Thumbs.db
+desktop.ini
+
+*.log
+companion/*.log
