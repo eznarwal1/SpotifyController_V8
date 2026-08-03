@@ -30,6 +30,12 @@ struct AppState
     String queueEntries[MAX_QUEUE_ENTRIES];
     uint8_t queueCount = 0;
     uint8_t queueSelectedIndex = 0;
+    static constexpr uint8_t MAX_MIXER_ENTRIES = 8;
+    String mixerEntries[MAX_MIXER_ENTRIES];
+    uint8_t mixerVolumes[MAX_MIXER_ENTRIES] = {0};
+    bool mixerMuted[MAX_MIXER_ENTRIES] = {false};
+    uint8_t mixerCount = 0;
+    uint8_t mixerSelectedIndex = 0;
 
     uint32_t receivedAtMs = 0;
 };

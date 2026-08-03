@@ -55,6 +55,13 @@ def make_state_message(state: AppState) -> str:
             0,
             int(getattr(state, "queue_selected_index", 0)),
         ),
+        "mixer_entries": list(getattr(state, "mixer_entries", []))[:8],
+        "mixer_volumes": list(getattr(state, "mixer_volumes", []))[:8],
+        "mixer_muted": list(getattr(state, "mixer_muted", []))[:8],
+        "mixer_selected_index": max(
+            0,
+            int(getattr(state, "mixer_selected_index", 0)),
+        ),
     }
     return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
 

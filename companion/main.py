@@ -15,6 +15,7 @@ from system_status import get_battery_status
 from v8_controller import V8Controller
 from v8_renderer import WIDTH as VIEW_WIDTH, HEIGHT as VIEW_HEIGHT, render_view
 from v9.queue_protocol import build_queue_state
+from v9.mixer_model import build_mixer_state
 from background_renderer import (
     BACKGROUND_WIDTH,
     BACKGROUND_HEIGHT,
@@ -867,6 +868,30 @@ async def v8_view_loop(
             continue
 
         mixer = v8.mixer.sessions()
+        native_mixer = build_mixer_state(
+            mixer,
+            selected_index=v8.state.mixer_index,
+        )
+        state.mixer_entries = [
+            entry.name
+            for entry in native_mixer.entries
+        ]
+        state.mixer_volumes = [
+            entry.volume
+            for entry in native_mixer.entries
+        ]
+        state.mixer_muted = [
+            entry.muted
+            for entry in native_mixer.entries
+        ]
+        state.mixer_selected_index = native_mixer.selected_index
+
+        # V9 Mixer is rendered locally by LVGL. Do not transmit the legacy
+        # utility-page bitmap while this page is active.
+        if view == "mixer":
+            last_render_key = None
+            await asyncio.sleep(0.35)
+            continue
         notifications = [
             item.text
             for item in v8.notifications.active()

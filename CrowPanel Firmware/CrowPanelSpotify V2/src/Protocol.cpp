@@ -291,6 +291,59 @@ void Protocol::processJsonLine()
             )
         );
     }
+    state.mixerCount = 0;
+
+    JsonArray mixerEntries =
+        document["mixer_entries"].as<JsonArray>();
+    JsonArray mixerVolumes =
+        document["mixer_volumes"].as<JsonArray>();
+    JsonArray mixerMuted =
+        document["mixer_muted"].as<JsonArray>();
+
+    for (JsonVariant entry : mixerEntries)
+    {
+        if (
+            state.mixerCount >=
+            AppState::MAX_MIXER_ENTRIES
+        )
+        {
+            break;
+        }
+
+        state.mixerEntries[state.mixerCount] =
+            static_cast<const char*>(entry | "");
+
+        const uint8_t index = state.mixerCount;
+        state.mixerVolumes[index] = static_cast<uint8_t>(
+            constrain(
+                mixerVolumes[index] | 0,
+                0,
+                100
+            )
+        );
+        state.mixerMuted[index] =
+            mixerMuted[index] | false;
+
+        ++state.mixerCount;
+    }
+
+    const int selectedMixerIndex =
+        document["mixer_selected_index"] | 0;
+
+    if (state.mixerCount == 0)
+    {
+        state.mixerSelectedIndex = 0;
+    }
+    else
+    {
+        state.mixerSelectedIndex = static_cast<uint8_t>(
+            constrain(
+                selectedMixerIndex,
+                0,
+                static_cast<int>(state.mixerCount) - 1
+            )
+        );
+    }
     state.receivedAtMs = millis();
 
     ui_.applyState(state);

@@ -33,3 +33,9 @@ V9.03 replaces the streamed Queue bitmap with native LVGL labels. The
 existing bitmap renderer remains active for Mixer, Notifications, and Themes.
 Album artwork and the blurred background continue to use the existing image
 transport.
+
+## V9.04
+
+The Mixer page is now rendered with native LVGL labels and bars. The PC sends
+only application names, volume percentages, mute states, and the selected row.
+Notifications and Themes remain on the legacy bitmap renderer.

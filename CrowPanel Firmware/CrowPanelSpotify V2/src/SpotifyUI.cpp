@@ -64,6 +64,10 @@ SpotifyUI::SpotifyUI()
       queueHeading_(nullptr),
       queueSourceLabel_(nullptr),
       queueRows_{nullptr, nullptr, nullptr, nullptr},
+      mixerPanel_(nullptr),
+      mixerHeading_(nullptr),
+      mixerRows_{nullptr, nullptr, nullptr, nullptr},
+      mixerBars_{nullptr, nullptr, nullptr, nullptr},
       utilityPreviousButton_(nullptr),
       utilityPreviousLabel_(nullptr),
       utilitySelectButton_(nullptr),
@@ -345,6 +349,93 @@ void SpotifyUI::create(lv_obj_t* screen)
         );
     }
 
+
+
+    // V9 native Mixer page.
+    mixerPanel_ = lv_obj_create(screen);
+    lv_obj_set_size(mixerPanel_, 470, 160);
+    lv_obj_set_pos(mixerPanel_, 290, 70);
+    lv_obj_set_style_bg_opa(mixerPanel_, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(mixerPanel_, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(mixerPanel_, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(mixerPanel_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(mixerPanel_, LV_OBJ_FLAG_HIDDEN);
+
+    mixerHeading_ = lv_label_create(mixerPanel_);
+    lv_label_set_text(mixerHeading_, "Audio Mixer");
+    lv_obj_set_pos(mixerHeading_, 8, 2);
+    lv_obj_set_style_text_color(
+        mixerHeading_,
+        lv_color_white(),
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_text_font(
+        mixerHeading_,
+        &lv_font_montserrat_14,
+        LV_PART_MAIN
+    );
+
+    for (uint8_t index = 0; index < 4; ++index)
+    {
+        mixerRows_[index] = lv_label_create(mixerPanel_);
+        lv_obj_set_size(mixerRows_[index], 310, 28);
+        lv_obj_set_pos(mixerRows_[index], 8, 30 + index * 31);
+        lv_label_set_long_mode(
+            mixerRows_[index],
+            LV_LABEL_LONG_DOT
+        );
+        lv_obj_set_style_pad_left(
+            mixerRows_[index],
+            8,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_pad_top(
+            mixerRows_[index],
+            5,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_radius(
+            mixerRows_[index],
+            7,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_opa(
+            mixerRows_[index],
+            LV_OPA_20,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_color(
+            mixerRows_[index],
+            lv_color_hex(0x202225),
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_text_color(
+            mixerRows_[index],
+            lv_color_white(),
+            LV_PART_MAIN
+        );
+
+        mixerBars_[index] = lv_bar_create(mixerPanel_);
+        lv_obj_set_size(mixerBars_[index], 125, 10);
+        lv_obj_set_pos(mixerBars_[index], 330, 39 + index * 31);
+        lv_bar_set_range(mixerBars_[index], 0, 100);
+        lv_bar_set_value(mixerBars_[index], 0, LV_ANIM_OFF);
+        lv_obj_set_style_bg_opa(
+            mixerBars_[index],
+            LV_OPA_30,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_color(
+            mixerBars_[index],
+            lv_color_hex(0x4E5058),
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_color(
+            mixerBars_[index],
+            lv_color_hex(0x5865F2),
+            LV_PART_INDICATOR
+        );
+    }
 
     // Utility-page navigation. These live below the PC-rendered page, so they
     // never overlap queue/mixer content.
@@ -1297,6 +1388,7 @@ void SpotifyUI::applyState(const AppState& state)
     updateModeIndicators();
     updateStatusArea();
     updateNativeQueue();
+    updateNativeMixer();
     updateProgressNow(true);
 }
 
@@ -1370,15 +1462,18 @@ void SpotifyUI::updatePageVisibility()
     const bool queuePage =
         state_.viewMode.equalsIgnoreCase("queue");
 
+    const bool mixerPage =
+        state_.viewMode.equalsIgnoreCase("mixer");
+
     // V9 Queue is native. Other utility pages still use the legacy bitmap.
     setObjectVisible(
         viewImageObject_,
-        utilityPage && !queuePage
+        utilityPage && !queuePage && !mixerPage
     );
     setObjectVisible(queuePanel_, queuePage);
 
-    const bool mixerPage =
-        state_.viewMode.equalsIgnoreCase("mixer");
+
+    setObjectVisible(mixerPanel_, mixerPage);
     const bool selectableUtility =
         queuePage ||
         mixerPage ||
@@ -1524,6 +1619,105 @@ void SpotifyUI::updateNativeQueue()
                 ? lv_color_hex(0x5865F2)
                 : lv_color_hex(0x202225),
             LV_PART_MAIN
+        );
+    }
+}
+
+void SpotifyUI::updateNativeMixer()
+{
+    if (mixerPanel_ == nullptr)
+    {
+        return;
+    }
+
+    if (state_.mixerCount == 0)
+    {
+        lv_label_set_text(
+            mixerRows_[0],
+            "No controllable audio sessions"
+        );
+        lv_bar_set_value(
+            mixerBars_[0],
+            0,
+            LV_ANIM_OFF
+        );
+
+        for (uint8_t row = 1; row < 4; ++row)
+        {
+            lv_label_set_text(mixerRows_[row], "");
+            lv_bar_set_value(
+                mixerBars_[row],
+                0,
+                LV_ANIM_OFF
+            );
+        }
+
+        return;
+    }
+
+    int start = static_cast<int>(state_.mixerSelectedIndex) - 1;
+    start = constrain(
+        start,
+        0,
+        max(0, static_cast<int>(state_.mixerCount) - 4)
+    );
+
+    for (uint8_t row = 0; row < 4; ++row)
+    {
+        const int mixerIndex = start + row;
+
+        if (mixerIndex >= state_.mixerCount)
+        {
+            lv_label_set_text(mixerRows_[row], "");
+            lv_bar_set_value(
+                mixerBars_[row],
+                0,
+                LV_ANIM_OFF
+            );
+            continue;
+        }
+
+        String label = state_.mixerEntries[mixerIndex];
+        label += "  ";
+        label += String(state_.mixerVolumes[mixerIndex]);
+        label += "%";
+
+        if (state_.mixerMuted[mixerIndex])
+        {
+            label += " [Muted]";
+        }
+
+        lv_label_set_text(
+            mixerRows_[row],
+            label.c_str()
+        );
+        lv_bar_set_value(
+            mixerBars_[row],
+            state_.mixerVolumes[mixerIndex],
+            LV_ANIM_OFF
+        );
+
+        const bool selected =
+            mixerIndex == state_.mixerSelectedIndex;
+
+        lv_obj_set_style_bg_opa(
+            mixerRows_[row],
+            selected ? LV_OPA_70 : LV_OPA_20,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_color(
+            mixerRows_[row],
+            selected
+                ? lv_color_hex(0x5865F2)
+                : lv_color_hex(0x202225),
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_color(
+            mixerBars_[row],
+            state_.mixerMuted[mixerIndex]
+                ? lv_color_hex(0xED4245)
+                : lv_color_hex(0x5865F2),
+            LV_PART_INDICATOR
         );
     }
 }
