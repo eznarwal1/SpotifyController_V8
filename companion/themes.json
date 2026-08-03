@@ -1,0 +1,114 @@
+{
+  "default": {
+    "name": "Modern",
+    "background": [
+      18,
+      18,
+      18
+    ],
+    "panel": [
+      40,
+      40,
+      40
+    ],
+    "primary": [
+      255,
+      255,
+      255
+    ],
+    "secondary": [
+      179,
+      179,
+      179
+    ],
+    "accent": [
+      29,
+      185,
+      84
+    ]
+  },
+  "oled": {
+    "name": "OLED",
+    "background": [
+      0,
+      0,
+      0
+    ],
+    "panel": [
+      20,
+      20,
+      20
+    ],
+    "primary": [
+      255,
+      255,
+      255
+    ],
+    "secondary": [
+      150,
+      150,
+      150
+    ],
+    "accent": [
+      29,
+      185,
+      84
+    ]
+  },
+  "minimal": {
+    "name": "Minimal",
+    "background": [
+      235,
+      235,
+      235
+    ],
+    "panel": [
+      215,
+      215,
+      215
+    ],
+    "primary": [
+      20,
+      20,
+      20
+    ],
+    "secondary": [
+      80,
+      80,
+      80
+    ],
+    "accent": [
+      0,
+      110,
+      210
+    ]
+  },
+  "retro": {
+    "name": "Retro",
+    "background": [
+      18,
+      25,
+      18
+    ],
+    "panel": [
+      40,
+      54,
+      40
+    ],
+    "primary": [
+      188,
+      255,
+      188
+    ],
+    "secondary": [
+      120,
+      190,
+      120
+    ],
+    "accent": [
+      255,
+      185,
+      70
+    ]
+  }
+}

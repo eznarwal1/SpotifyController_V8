@@ -1,0 +1,10 @@
+Pillow>=11.0
+psutil>=6.0
+pycaw>=20240210
+comtypes>=1.4
+pyserial>=3.5
+winrt-runtime>=3.2
+winrt-Windows.Foundation>=3.2
+winrt-Windows.Foundation.Collections>=3.2
+winrt-Windows.Media>=3.2
+winrt-Windows.Media.Control>=3.2

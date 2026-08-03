@@ -1,0 +1,39 @@
+Debug session started 2026-08-02T21:43:28.234159
+[2026-08-02 21:43:28.348] V6 universal artwork loop started.
+[2026-08-02 21:43:28.353] Display connection changed: connected=False, port=''
+[2026-08-02 21:43:29.618] Artwork cache ready in 0.000s for ('Railway (Bang Chan)', 'Stray Kids', 'HOP')
+[2026-08-02 21:43:29.638] Source image sent for 'Spotify — Railway (Bang Chan)'
+[2026-08-02 21:43:30.359] Metadata image sent for ('Railway (Bang Chan)', 'Stray Kids', 'HOP', 'Spotify — Railway (Bang Chan)', 0)
+[2026-08-02 21:43:30.379] Display connection changed: connected=True, port='COM3'
+[2026-08-02 21:43:36.190] Blurred artwork background send returned True
+[2026-08-02 21:43:36.190] Artwork serial send returned True in 6.578s
+[2026-08-02 21:43:36.312] Source image sent for 'Spotify — Railway (Bang Chan)'
+[2026-08-02 21:43:37.038] Metadata image sent for ('Railway (Bang Chan)', 'Stray Kids', 'HOP', 'Spotify — Railway (Bang Chan)', 1)
+[2026-08-02 21:43:47.499] Artwork cache ready in 0.000s for ('러시안 룰렛 Russian Roulette', 'Red Velvet', 'Russian Roulette - The 3rd Mini Album')
+[2026-08-02 21:43:48.188] Source image sent for 'Spotify — 러시안 룰렛 Russian Roulette'
+[2026-08-02 21:43:48.915] Metadata image sent for ('러시안 룰렛 Russian Roulette', 'Red Velvet', 'Russian Roulette - The 3rd Mini Album', 'Spotify — 러시안 룰렛 Russian Roulette', 1)
+[2026-08-02 21:43:54.080] Blurred artwork background send returned True
+[2026-08-02 21:43:54.084] Artwork serial send returned True in 6.578s
+[2026-08-02 21:43:54.208] Source image sent for 'Spotify — 러시안 룰렛 Russian Roulette'
+[2026-08-02 21:43:54.928] Metadata image sent for ('러시안 룰렛 Russian Roulette', 'Red Velvet', 'Russian Roulette - The 3rd Mini Album', 'Spotify — 러시안 룰렛 Russian Roulette', 2)
+[2026-08-02 21:46:49.659] Artwork cache ready in 0.000s for ('Unfair (Felix)', 'Stray Kids', 'HOP')
+[2026-08-02 21:46:50.358] Source image sent for 'Spotify — Unfair (Felix)'
+[2026-08-02 21:46:51.083] Metadata image sent for ('Unfair (Felix)', 'Stray Kids', 'HOP', 'Spotify — Unfair (Felix)', 2)
+[2026-08-02 21:46:56.249] Blurred artwork background send returned True
+[2026-08-02 21:46:56.252] Artwork serial send returned True in 6.594s
+[2026-08-02 21:46:56.371] Source image sent for 'Spotify — Unfair (Felix)'
+[2026-08-02 21:46:57.103] Metadata image sent for ('Unfair (Felix)', 'Stray Kids', 'HOP', 'Spotify — Unfair (Felix)', 3)
+[2026-08-02 21:48:12.364] Artwork cache ready in 0.000s for ('HALLUCINATION (I.N)', 'Stray Kids', 'HOP')
+[2026-08-02 21:48:13.053] Source image sent for 'Spotify — HALLUCINATION (I.N)'
+[2026-08-02 21:48:13.778] Metadata image sent for ('HALLUCINATION (I.N)', 'Stray Kids', 'HOP', 'Spotify — HALLUCINATION (I.N)', 3)
+[2026-08-02 21:48:18.928] Blurred artwork background send returned True
+[2026-08-02 21:48:18.928] Artwork serial send returned True in 6.563s
+[2026-08-02 21:48:19.060] Source image sent for 'Spotify — HALLUCINATION (I.N)'
+[2026-08-02 21:48:19.783] Metadata image sent for ('HALLUCINATION (I.N)', 'Stray Kids', 'HOP', 'Spotify — HALLUCINATION (I.N)', 4)
+[2026-08-02 21:49:08.560] Artwork cache ready in 0.000s for ('Youth (Lee Know)', 'Stray Kids', 'HOP')
+[2026-08-02 21:49:09.260] Source image sent for 'Spotify — Youth (Lee Know)'
+[2026-08-02 21:49:09.983] Metadata image sent for ('Youth (Lee Know)', 'Stray Kids', 'HOP', 'Spotify — Youth (Lee Know)', 4)
+[2026-08-02 21:49:15.118] Blurred artwork background send returned True
+[2026-08-02 21:49:15.118] Artwork serial send returned True in 6.547s
+[2026-08-02 21:49:15.248] Source image sent for 'Spotify — Youth (Lee Know)'
+[2026-08-02 21:49:15.973] Metadata image sent for ('Youth (Lee Know)', 'Stray Kids', 'HOP', 'Spotify — Youth (Lee Know)', 5)

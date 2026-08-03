@@ -1,0 +1,1 @@
+Companion code is in ../companion. Firmware source can be added to ../firmware.

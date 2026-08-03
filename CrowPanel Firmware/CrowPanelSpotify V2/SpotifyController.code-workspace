@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "../../Users/Rick/Downloads/SpotifyController"
+		},
+		{
+			"name": "SpotifyDisplay",
+			"path": "../SpotifyDisplay"
+		},
+		{
+			"name": "CrowPanelOfficial",
+			"path": "../../Users/Rick/Documents/PlatformIO/Projects/CrowPanelOfficial"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {}
+}

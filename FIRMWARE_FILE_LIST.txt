@@ -1,0 +1,12 @@
+AppState.h
+MetadataImage.cpp
+MetadataImage.h
+Protocol.cpp
+Protocol.h
+SourceImage.cpp
+SourceImage.h
+SpotifyUI.cpp
+SpotifyUI.h
+ViewImage.cpp
+ViewImage.h
+main.cpp
