@@ -25,6 +25,11 @@ struct AppState
     bool batteryCharging = false;
     String viewMode = "now_playing";
     String notificationText = "";
+    static constexpr uint8_t MAX_QUEUE_ENTRIES = 8;
+    String queueSource = "";
+    String queueEntries[MAX_QUEUE_ENTRIES];
+    uint8_t queueCount = 0;
+    uint8_t queueSelectedIndex = 0;
 
     uint32_t receivedAtMs = 0;
 };

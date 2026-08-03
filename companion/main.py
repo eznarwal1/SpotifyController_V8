@@ -14,6 +14,7 @@ from volume_controller import VolumeController
 from system_status import get_battery_status
 from v8_controller import V8Controller
 from v8_renderer import WIDTH as VIEW_WIDTH, HEIGHT as VIEW_HEIGHT, render_view
+from v9.queue_protocol import build_queue_state
 from background_renderer import (
     BACKGROUND_WIDTH,
     BACKGROUND_HEIGHT,
@@ -849,6 +850,22 @@ async def v8_view_loop(
             queue_available,
             queue_status,
         ) = spotify._chrome_bridge.selected_queue_status()
+        native_queue = build_queue_state(
+            queue,
+            source=queue_source,
+            selected_index=v8.state.queue_index,
+        )
+        state.queue_source = native_queue.source
+        state.queue_entries = native_queue.display_rows()
+        state.queue_selected_index = native_queue.selected_index
+
+        # V9 Queue is rendered locally by LVGL. Do not transmit the legacy
+        # utility-page bitmap while this page is active.
+        if view == "queue":
+            last_render_key = None
+            await asyncio.sleep(0.25)
+            continue
+
         mixer = v8.mixer.sessions()
         notifications = [
             item.text

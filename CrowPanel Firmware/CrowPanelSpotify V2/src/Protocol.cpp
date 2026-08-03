@@ -251,6 +251,46 @@ void Protocol::processJsonLine()
     state.notificationText = static_cast<const char*>(
         document["notification_text"] | ""
     );
+    state.queueSource = static_cast<const char*>(
+        document["queue_source"] | ""
+    );
+    state.queueCount = 0;
+
+    JsonArray queueEntries =
+        document["queue_entries"].as<JsonArray>();
+
+    for (JsonVariant entry : queueEntries)
+    {
+        if (
+            state.queueCount >=
+            AppState::MAX_QUEUE_ENTRIES
+        )
+        {
+            break;
+        }
+
+        state.queueEntries[state.queueCount] =
+            static_cast<const char*>(entry | "");
+        ++state.queueCount;
+    }
+
+    const int selectedQueueIndex =
+        document["queue_selected_index"] | 0;
+
+    if (state.queueCount == 0)
+    {
+        state.queueSelectedIndex = 0;
+    }
+    else
+    {
+        state.queueSelectedIndex = static_cast<uint8_t>(
+            constrain(
+                selectedQueueIndex,
+                0,
+                static_cast<int>(state.queueCount) - 1
+            )
+        );
+    }
     state.receivedAtMs = millis();
 
     ui_.applyState(state);

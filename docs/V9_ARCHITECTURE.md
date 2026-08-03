@@ -24,10 +24,12 @@ has been tested on the physical display.
 ## Milestones
 
 1. V9.01: organization scaffold and queue model.
-2. V9.02: structured queue message.
-3. V9.03: native LVGL Queue page.
+2. V9.02: structured queue model and state fields.
+3. V9.03: native LVGL Queue page connected to live browser queue data.
 4. V9.04: native LVGL Mixer page.
 5. V9.05: native Notifications page.
 
-This document is intentionally descriptive only. V9.01 does not change the
-running companion or firmware.
+V9.03 replaces the streamed Queue bitmap with native LVGL labels. The
+existing bitmap renderer remains active for Mixer, Notifications, and Themes.
+Album artwork and the blurred background continue to use the existing image
+transport.

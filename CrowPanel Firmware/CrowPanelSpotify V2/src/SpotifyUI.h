@@ -43,6 +43,7 @@ private:
     void updateModeIndicators();
     void updateSourceButton();
     void updateStatusArea();
+    void updateNativeQueue();
     void updatePageVisibility();
     static void setObjectVisible(lv_obj_t* object, bool visible);
     void setPlayPending(bool pending);
@@ -96,6 +97,10 @@ private:
     lv_obj_t* viewLabel_;
     lv_obj_t* viewImageObject_;
     lv_obj_t* backgroundImageObject_;
+    lv_obj_t* queuePanel_;
+    lv_obj_t* queueHeading_;
+    lv_obj_t* queueSourceLabel_;
+    lv_obj_t* queueRows_[4];
     lv_obj_t* utilityPreviousButton_;
     lv_obj_t* utilityPreviousLabel_;
     lv_obj_t* utilitySelectButton_;

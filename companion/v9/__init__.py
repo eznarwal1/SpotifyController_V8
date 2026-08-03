@@ -1,9 +1,11 @@
-"""V9 companion modules.
-
-These modules are introduced incrementally and are not imported by the V8
-runtime until the corresponding V9 milestone is tested.
-"""
+"""V9 companion modules."""
 
 from .queue_model import QueueEntry, normalize_queue_entries
+from .queue_protocol import QueueState, build_queue_state
 
-__all__ = ["QueueEntry", "normalize_queue_entries"]
+__all__ = [
+    "QueueEntry",
+    "QueueState",
+    "build_queue_state",
+    "normalize_queue_entries",
+]

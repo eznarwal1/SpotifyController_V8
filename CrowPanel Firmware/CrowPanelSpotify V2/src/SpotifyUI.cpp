@@ -60,6 +60,10 @@ SpotifyUI::SpotifyUI()
       viewLabel_(nullptr),
       viewImageObject_(nullptr),
       backgroundImageObject_(nullptr),
+      queuePanel_(nullptr),
+      queueHeading_(nullptr),
+      queueSourceLabel_(nullptr),
+      queueRows_{nullptr, nullptr, nullptr, nullptr},
       utilityPreviousButton_(nullptr),
       utilityPreviousLabel_(nullptr),
       utilitySelectButton_(nullptr),
@@ -254,6 +258,92 @@ void SpotifyUI::create(lv_obj_t* screen)
         viewImageObject_,
         LV_OBJ_FLAG_HIDDEN
     );
+
+
+    // V9 native Queue page. It uses LVGL labels instead of a streamed bitmap.
+    queuePanel_ = lv_obj_create(screen);
+    lv_obj_set_size(queuePanel_, 470, 160);
+    lv_obj_set_pos(queuePanel_, 290, 70);
+    lv_obj_set_style_bg_opa(queuePanel_, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(queuePanel_, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(queuePanel_, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(queuePanel_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(queuePanel_, LV_OBJ_FLAG_HIDDEN);
+
+    queueHeading_ = lv_label_create(queuePanel_);
+    lv_label_set_text(queueHeading_, "Queue");
+    lv_obj_set_pos(queueHeading_, 8, 2);
+    lv_obj_set_style_text_color(
+        queueHeading_,
+        lv_color_white(),
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_text_font(
+        queueHeading_,
+        &lv_font_montserrat_14,
+        LV_PART_MAIN
+    );
+
+    queueSourceLabel_ = lv_label_create(queuePanel_);
+    lv_label_set_text(queueSourceLabel_, "");
+    lv_obj_set_width(queueSourceLabel_, 300);
+    lv_obj_set_pos(queueSourceLabel_, 160, 2);
+    lv_obj_set_style_text_align(
+        queueSourceLabel_,
+        LV_TEXT_ALIGN_RIGHT,
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_text_color(
+        queueSourceLabel_,
+        lv_color_hex(0xB5BAC1),
+        LV_PART_MAIN
+    );
+
+    for (uint8_t index = 0; index < 4; ++index)
+    {
+        queueRows_[index] = lv_label_create(queuePanel_);
+        lv_obj_set_size(queueRows_[index], 454, 27);
+        lv_obj_set_pos(queueRows_[index], 8, 30 + index * 31);
+        lv_label_set_long_mode(
+            queueRows_[index],
+            LV_LABEL_LONG_DOT
+        );
+        lv_obj_set_style_pad_left(
+            queueRows_[index],
+            8,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_pad_right(
+            queueRows_[index],
+            8,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_pad_top(
+            queueRows_[index],
+            5,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_radius(
+            queueRows_[index],
+            7,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_opa(
+            queueRows_[index],
+            LV_OPA_30,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_color(
+            queueRows_[index],
+            lv_color_hex(0x202225),
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_text_color(
+            queueRows_[index],
+            lv_color_white(),
+            LV_PART_MAIN
+        );
+    }
 
 
     // Utility-page navigation. These live below the PC-rendered page, so they
@@ -1206,6 +1296,7 @@ void SpotifyUI::applyState(const AppState& state)
 
     updateModeIndicators();
     updateStatusArea();
+    updateNativeQueue();
     updateProgressNow(true);
 }
 
@@ -1276,11 +1367,16 @@ void SpotifyUI::updatePageVisibility()
     setObjectVisible(discordMuteButton_, nowPlaying);
     setObjectVisible(discordDeafenButton_, nowPlaying);
 
-    // Queue, Mixer, Notifications, Dashboard, and Themes use the bitmap page.
-    setObjectVisible(viewImageObject_, utilityPage);
-
     const bool queuePage =
         state_.viewMode.equalsIgnoreCase("queue");
+
+    // V9 Queue is native. Other utility pages still use the legacy bitmap.
+    setObjectVisible(
+        viewImageObject_,
+        utilityPage && !queuePage
+    );
+    setObjectVisible(queuePanel_, queuePage);
+
     const bool mixerPage =
         state_.viewMode.equalsIgnoreCase("mixer");
     const bool selectableUtility =
@@ -1345,6 +1441,90 @@ void SpotifyUI::updatePageVisibility()
     else
     {
         lv_label_set_text(viewLabel_, "View");
+    }
+}
+
+void SpotifyUI::updateNativeQueue()
+{
+    if (queuePanel_ == nullptr)
+    {
+        return;
+    }
+
+    lv_label_set_text(
+        queueSourceLabel_,
+        state_.queueSource.isEmpty()
+            ? "No queue source"
+            : state_.queueSource.c_str()
+    );
+
+    if (state_.queueCount == 0)
+    {
+        lv_label_set_text(
+            queueRows_[0],
+            "Open Spotify Web Queue and leave it visible"
+        );
+        lv_obj_set_style_bg_opa(
+            queueRows_[0],
+            LV_OPA_20,
+            LV_PART_MAIN
+        );
+
+        for (uint8_t row = 1; row < 4; ++row)
+        {
+            lv_label_set_text(queueRows_[row], "");
+            lv_obj_set_style_bg_opa(
+                queueRows_[row],
+                LV_OPA_TRANSP,
+                LV_PART_MAIN
+            );
+        }
+
+        return;
+    }
+
+    int start = static_cast<int>(state_.queueSelectedIndex) - 1;
+    start = constrain(
+        start,
+        0,
+        max(0, static_cast<int>(state_.queueCount) - 4)
+    );
+
+    for (uint8_t row = 0; row < 4; ++row)
+    {
+        const int queueIndex = start + row;
+
+        if (queueIndex >= state_.queueCount)
+        {
+            lv_label_set_text(queueRows_[row], "");
+            lv_obj_set_style_bg_opa(
+                queueRows_[row],
+                LV_OPA_TRANSP,
+                LV_PART_MAIN
+            );
+            continue;
+        }
+
+        lv_label_set_text(
+            queueRows_[row],
+            state_.queueEntries[queueIndex].c_str()
+        );
+
+        const bool selected =
+            queueIndex == state_.queueSelectedIndex;
+
+        lv_obj_set_style_bg_opa(
+            queueRows_[row],
+            selected ? LV_OPA_70 : LV_OPA_20,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_color(
+            queueRows_[row],
+            selected
+                ? lv_color_hex(0x5865F2)
+                : lv_color_hex(0x202225),
+            LV_PART_MAIN
+        );
     }
 }
 

@@ -49,6 +49,12 @@ def make_state_message(state: AppState) -> str:
         "battery_charging": bool(state.battery_charging),
         "view_mode": getattr(state, "view_mode", "now_playing"),
         "notification_text": getattr(state, "notification_text", ""),
+        "queue_source": getattr(state, "queue_source", ""),
+        "queue_entries": list(getattr(state, "queue_entries", []))[:8],
+        "queue_selected_index": max(
+            0,
+            int(getattr(state, "queue_selected_index", 0)),
+        ),
     }
     return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
 

@@ -34,6 +34,9 @@ class AppState:
     battery_charging: bool = False
     view_mode: str = "now_playing"
     notification_text: str = ""
+    queue_source: str = ""
+    queue_entries: list[str] = field(default_factory=list)
+    queue_selected_index: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
