@@ -342,7 +342,16 @@ void SpotifyUI::create(lv_obj_t* screen)
     queuePanel_ = lv_obj_create(screen);
     lv_obj_set_size(queuePanel_, 470, 160);
     lv_obj_set_pos(queuePanel_, 290, 70);
-    lv_obj_set_style_bg_opa(queuePanel_, LV_OPA_TRANSP, LV_PART_MAIN);
+    // Give Queue its own compositor layer. A mostly opaque panel prevents
+    // stale Now Playing pixels from showing through while retaining a hint of
+    // the artwork background.
+    lv_obj_set_style_bg_color(
+        queuePanel_,
+        lv_color_hex(0x121212),
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_bg_opa(queuePanel_, LV_OPA_90, LV_PART_MAIN);
+    lv_obj_set_style_radius(queuePanel_, 10, LV_PART_MAIN);
     lv_obj_set_style_border_width(queuePanel_, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(queuePanel_, 0, LV_PART_MAIN);
     lv_obj_clear_flag(queuePanel_, LV_OBJ_FLAG_SCROLLABLE);
@@ -1695,6 +1704,12 @@ void SpotifyUI::updatePageVisibility()
     {
         lv_label_set_text(viewLabel_, "View");
     }
+
+    /*
+     * Page changes are infrequent. Invalidate once after all objects have
+     * been shown/hidden so LVGL clears stale pixels in one coordinated pass.
+     */
+    lv_obj_invalidate(lv_scr_act());
 }
 
 void SpotifyUI::updateNativeQueue()

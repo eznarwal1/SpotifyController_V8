@@ -322,7 +322,7 @@
     return result;
   }
 
-  function spotifyQueueButton() {
+    function spotifyQueueButton() {
     const selectors = [
       '[data-testid="control-button-queue"]',
       'button[aria-label="Queue"]',
@@ -332,7 +332,11 @@
 
     for (const selector of selectors) {
       const button = document.querySelector(selector);
-      if (button instanceof HTMLElement && isVisible(button)) {
+
+      if (
+        button instanceof HTMLElement &&
+        isVisible(button)
+      ) {
         return button;
       }
     }
@@ -341,34 +345,29 @@
   }
 
   function spotifyQueuePanel() {
+    /*
+     * Current Spotify Web queue structure:
+     *
+     * aside[aria-label="Queue"]
+     *   ul[role="treegrid"]
+     *     li[role="row"]
+     *
+     * Never fall back to playlists, recommendations, or the entire document.
+     */
     const selectors = [
-      '[data-testid="queue"]',
-      '[data-testid="queue-panel"]',
-      '[aria-label="Queue"]',
-      '[aria-label*="queue" i]',
-      'aside',
+      'aside[aria-label="Queue"]',
+      'aside[aria-label="Your queue"]',
+      'aside[aria-label*="queue" i]',
     ];
 
     for (const selector of selectors) {
-      for (const candidate of document.querySelectorAll(selector)) {
-        if (!(candidate instanceof HTMLElement) || !isVisible(candidate)) {
-          continue;
-        }
+      const panel = document.querySelector(selector);
 
-        const text = (candidate.textContent || "").toLowerCase();
-        const hasTracks = Boolean(
-          candidate.querySelector(
-            [
-              '[data-testid="tracklist-row"]',
-              'a[href*="/track/"]',
-              '[role="row"]',
-            ].join(",")
-          )
-        );
-
-        if (hasTracks && (text.includes("next") || text.includes("queue"))) {
-          return candidate;
-        }
+      if (
+        panel instanceof HTMLElement &&
+        isVisible(panel)
+      ) {
+        return panel;
       }
     }
 
@@ -381,181 +380,195 @@
       .trim();
   }
 
-  function spotifyTrackText(row) {
-    /*
-     * Prefer anchors identified by their Spotify URL. Some data-testid
-     * elements wrap both the title and artist, which produced strings such as
-     * "SongArtist" or "Song Artist - Artist".
-     */
-    const trackLinks = Array.from(
-      row.querySelectorAll('a[href*="/track/"]')
-    ).filter((element) => {
-      return (
-        element instanceof HTMLElement &&
-        isVisible(element) &&
-        cleanSpotifyText(element.textContent)
-      );
-    });
+  function spotifyQueueTitle(row) {
+    const selectors = [
+      '[class*="legacy-list-row__header"] p span',
+      '[class*="legacy-list-row__header"] p',
+      '[class*="legacy-list-row__header"]',
+      '[class*="list-row-title"] span',
+      '[class*="list-row-title"]',
+      'p[class*="title"] span',
+      'p[class*="title"]',
+    ];
 
-    const title =
-      cleanSpotifyText(trackLinks[0]?.textContent) ||
-      cleanSpotifyText(
-        row.querySelector(
-          '[data-testid="track-name"]'
-        )?.textContent
-      );
+    for (const selector of selectors) {
+      const element = row.querySelector(selector);
+      const text = cleanSpotifyText(element?.textContent);
 
-    const artistLinks = Array.from(
-      row.querySelectorAll('a[href*="/artist/"]')
-    ).filter((element) => {
-      return (
-        element instanceof HTMLElement &&
-        isVisible(element)
-      );
-    });
-
-    const artists = uniqueText(
-      artistLinks
-        .map((element) =>
-          cleanSpotifyText(element.textContent)
-        )
-        .filter((artist) => {
-          return (
-            artist &&
-            artist.toLowerCase() !== title.toLowerCase()
-          );
-        }),
-      5
-    );
-
-    let artist = artists.join(", ");
-
-    /*
-     * Fallback only to an artist-specific test ID. Never use the full row or
-     * a generic wrapper because those frequently contain the title directly
-     * before the artist.
-     */
-    if (!artist) {
-      artist = cleanSpotifyText(
-        row.querySelector(
-          '[data-testid="track-row-artist-name-link"]'
-        )?.textContent
-      );
-    }
-
-    // Guard against wrappers returning "SongArtist" or "Song Artist".
-    if (title && artist) {
-      const compactTitle = title
-        .replace(/\s+/g, "")
-        .toLowerCase();
-      const compactArtist = artist
-        .replace(/\s+/g, "")
-        .toLowerCase();
-
-      if (compactArtist.startsWith(compactTitle)) {
-        const originalWithoutTitle = artist
-          .slice(title.length)
-          .replace(/^[\s\-–—|•·:]+/, "")
-          .trim();
-
-        if (originalWithoutTitle) {
-          artist = originalWithoutTitle;
-        }
+      if (text) {
+        return text;
       }
-    }
-
-    if (title && artist) {
-      return `${title} - ${artist}`;
-    }
-
-    if (title) {
-      return title;
     }
 
     return "";
   }
 
+    function spotifyQueueArtist(row, title) {
+    const titleElement =
+      row.querySelector(
+        '[class*="legacy-list-row__header"]'
+      ) ||
+      row.querySelector(
+        '[class*="list-row-title"]'
+      );
 
-  function spotifyQueueRoots() {
-    const roots = [];
+    const candidates = [];
 
-    const explicit = document.querySelectorAll(
+    for (const element of row.querySelectorAll(
       [
-        '[data-testid="queue"]',
-        '[data-testid="queue-panel"]',
-        '[aria-label="Queue"]',
-        '[aria-label*="queue" i]',
+        'a[href*="/artist/"]',
+        '[class*="legacy-list-row__subheader"]',
+        '[class*="list-row-subtitle"]',
+        '[class*="secondary"]',
+        "p",
+        "span",
       ].join(",")
+    )) {
+      if (
+        !(element instanceof HTMLElement) ||
+        !isVisible(element)
+      ) {
+        continue;
+      }
+
+      if (
+        titleElement &&
+        (
+          element === titleElement ||
+          titleElement.contains(element)
+        )
+      ) {
+        continue;
+      }
+
+      let text = cleanSpotifyText(element.textContent);
+
+      if (
+        !text ||
+        text === title ||
+        text.length > 160 ||
+        /^\d+:\d+$/.test(text) ||
+        /^(play|pause|more|remove|save|add)$/i.test(text)
+      ) {
+        continue;
+      }
+
+      if (
+        text.startsWith(title) ||
+        title.startsWith(text)
+      ) {
+        continue;
+      }
+
+      // Spotify prefixes video queue entries with:
+      // "Music video • Artist"
+      text = text
+        .replace(
+          /^music video\s*[•·\-–—|:]\s*/i,
+          ""
+        )
+        .trim();
+
+      if (text) {
+        candidates.push(text);
+      }
+    }
+
+    const ignored = new Set([
+      "now playing",
+      "next in queue",
+      "next up",
+      "queue",
+      "music video",
+    ]);
+
+    return (
+      uniqueText(candidates, 15).find((text) => {
+        return (
+          text &&
+          !ignored.has(text.toLowerCase())
+        );
+      }) || ""
     );
+  }
 
-    for (const element of explicit) {
-      if (
-        element instanceof HTMLElement &&
-        isVisible(element)
-      ) {
-        roots.push(element);
+  function spotifyTrackText(row) {
+    const title = spotifyQueueTitle(row);
+
+    if (!title) {
+      return "";
+    }
+
+    const artist = spotifyQueueArtist(row, title);
+
+    return artist
+      ? `${title} - ${artist}`
+      : title;
+  }
+
+    function spotifyQueueRows() {
+    const panel = spotifyQueuePanel();
+
+    if (!(panel instanceof HTMLElement)) {
+      return [];
+    }
+
+    /*
+     * Spotify uses separate treegrids for:
+     *   - the currently playing track;
+     *   - the upcoming queue.
+     *
+     * Read every visible row in the Queue sidebar instead of selecting only
+     * the first treegrid.
+     */
+    const allRows = Array.from(
+      panel.querySelectorAll('li[role="row"]')
+    ).filter((row) => {
+      return (
+        row instanceof HTMLElement &&
+        isVisible(row)
+      );
+    });
+
+    const rows = allRows
+      .map((row) => {
+        return {
+          row,
+          text: spotifyTrackText(row),
+        };
+      })
+      .filter((entry) => entry.text);
+
+    /*
+     * Remove the current song when Spotify includes it before the upcoming
+     * queue. Do not assume it is the only treegrid.
+     */
+    const currentTitle = cleanSpotifyText(
+      navigator.mediaSession?.metadata?.title
+    ).toLowerCase();
+
+    if (currentTitle) {
+      const currentIndex = rows.findIndex((entry) => {
+        const title = entry.text
+          .split(" - ", 1)[0]
+          .trim()
+          .toLowerCase();
+
+        return title === currentTitle;
+      });
+
+      if (currentIndex >= 0) {
+        rows.splice(currentIndex, 1);
       }
     }
 
-    // Spotify frequently renders the queue in the right sidebar without a
-    // stable queue test ID. Add visible sidebars that contain track links.
-    for (const element of document.querySelectorAll("aside, section")) {
-      if (
-        element instanceof HTMLElement &&
-        isVisible(element) &&
-        element.querySelector('a[href*="/track/"]')
-      ) {
-        roots.push(element);
-      }
-    }
-
-    return roots.length ? roots : [document];
+    return rows;
   }
 
   function spotifyQueueItems() {
-    const results = [];
-    const visitedRows = new Set();
-
-    for (const root of spotifyQueueRoots()) {
-      const trackLinks = root.querySelectorAll(
-        'a[href*="/track/"]'
-      );
-
-      for (const trackLink of trackLinks) {
-        if (
-          !(trackLink instanceof HTMLElement) ||
-          !isVisible(trackLink)
-        ) {
-          continue;
-        }
-
-        const row =
-          trackLink.closest(
-            [
-              '[data-testid="tracklist-row"]',
-              '[role="row"]',
-              'li',
-            ].join(",")
-          ) || trackLink.parentElement;
-
-        if (
-          !(row instanceof HTMLElement) ||
-          visitedRows.has(row)
-        ) {
-          continue;
-        }
-
-        visitedRows.add(row);
-
-        const text = spotifyTrackText(row);
-
-        if (text) {
-          results.push(text);
-        }
-      }
-    }
-
-    return uniqueText(results, 30);
+    return spotifyQueueRows()
+      .map((entry) => entry.text)
+      .slice(0, 30);
   }
 
 
@@ -679,32 +692,10 @@
     }
 
     if (location.hostname.includes("open.spotify.com")) {
-      const panel = spotifyQueuePanel();
-      const root = panel || document;
-
-      return Array.from(
-        root.querySelectorAll(
-          [
-            '[data-testid="tracklist-row"]',
-            '[role="row"]',
-          ].join(",")
-        )
-      ).filter((row) => {
-        return (
-          row instanceof HTMLElement &&
-          isVisible(row) &&
-          Boolean(
-            row.querySelector(
-              [
-                '[data-testid="internal-track-link"]',
-                'a[href*="/track/"]',
-              ].join(",")
-            )
-          )
-        );
-      });
+      return spotifyQueueRows().map(
+        (entry) => entry.row
+      );
     }
-
     return [];
   }
 
@@ -738,10 +729,9 @@
     const clickable =
       target.querySelector(
         [
-          '[data-testid="internal-track-link"]',
-          'a[href*="/track/"]',
-          "button",
+          '[class*="legacy-list-row__interactive"]',
           "[role='button']",
+          "button",
           "a[href]",
         ].join(",")
       ) || target;
