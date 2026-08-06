@@ -16,6 +16,80 @@ constexpr uint32_t PROGRESS_TRACK_COLOR = 0x535353;
 constexpr lv_coord_t ARTWORK_SIZE = 210;
 constexpr lv_coord_t ARTWORK_RADIUS = 10;
 constexpr uint32_t PROGRESS_REFRESH_MS = 33;
+
+bool queueStateChanged(
+    const AppState& previous,
+    const AppState& current
+)
+{
+    if (
+        previous.queueSource != current.queueSource ||
+        previous.queueCount != current.queueCount ||
+        previous.queueSelectedIndex != current.queueSelectedIndex
+    )
+    {
+        return true;
+    }
+
+    for (uint8_t index = 0; index < current.queueCount; ++index)
+    {
+        if (
+            previous.queueEntries[index] !=
+            current.queueEntries[index]
+        )
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool mixerStateChanged(
+    const AppState& previous,
+    const AppState& current
+)
+{
+    if (
+        previous.mixerCount != current.mixerCount ||
+        previous.mixerSelectedIndex != current.mixerSelectedIndex
+    )
+    {
+        return true;
+    }
+
+    for (uint8_t index = 0; index < current.mixerCount; ++index)
+    {
+        if (
+            previous.mixerEntries[index] !=
+                current.mixerEntries[index] ||
+            previous.mixerVolumes[index] !=
+                current.mixerVolumes[index] ||
+            previous.mixerMuted[index] !=
+                current.mixerMuted[index]
+        )
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool statusStateChanged(
+    const AppState& previous,
+    const AppState& current
+)
+{
+    return (
+        previous.discordCallActive != current.discordCallActive ||
+        previous.discordMuted != current.discordMuted ||
+        previous.discordDeafened != current.discordDeafened ||
+        previous.batteryPresent != current.batteryPresent ||
+        previous.batteryPercent != current.batteryPercent ||
+        previous.batteryCharging != current.batteryCharging
+    );
+}
 }
 
 SpotifyUI::SpotifyUI()
@@ -1347,49 +1421,135 @@ void SpotifyUI::attachBackgroundImage(
 
 void SpotifyUI::applyState(const AppState& state)
 {
+    const AppState previous = state_;
+    const bool firstState = previous.receivedAtMs == 0;
+
+    const bool pageChanged =
+        firstState ||
+        previous.viewMode != state.viewMode ||
+        previous.notificationText != state.notificationText;
+
+    const bool metadataChanged =
+        firstState ||
+        previous.spotifyConnected != state.spotifyConnected ||
+        previous.title != state.title ||
+        previous.artist != state.artist ||
+        previous.album != state.album;
+
+    const bool sourceChanged =
+        firstState ||
+        previous.application != state.application;
+
+    const bool playbackChanged =
+        firstState ||
+        previous.playing != state.playing;
+
+    const bool modeChanged =
+        firstState ||
+        previous.shuffle != state.shuffle ||
+        previous.repeat != state.repeat;
+
+    const bool statusChanged =
+        firstState ||
+        statusStateChanged(previous, state);
+
+    const bool queueChanged =
+        firstState ||
+        queueStateChanged(previous, state);
+
+    const bool mixerChanged =
+        firstState ||
+        mixerStateChanged(previous, state);
+
+    const bool progressChanged =
+        firstState ||
+        previous.positionMs != state.positionMs ||
+        previous.durationMs != state.durationMs ||
+        previous.playing != state.playing;
+
     state_ = state;
 
-    updatePageVisibility();
-
-    if (state.spotifyConnected)
+    if (pageChanged)
     {
-        lv_label_set_text(
-            title_,
-            state.title.length() > 0 ? state.title.c_str() : "Unknown title"
-        );
-        lv_label_set_text(
-            artist_,
-            state.artist.length() > 0 ? state.artist.c_str() : "Unknown artist"
-        );
-        lv_label_set_text(
-            album_,
-            state.album.length() > 0 ? state.album.c_str() : "Unknown album"
-        );
-    }
-    else
-    {
-        lv_label_set_text(title_, "Media not connected");
-        lv_label_set_text(artist_, "Start playback on your computer");
-        lv_label_set_text(album_, "");
+        updatePageVisibility();
     }
 
-    updateSourceButton();
-
-    if (!playPending_)
+    if (metadataChanged)
     {
-        updatePlayPauseIcon(state.playing);
-    }
-    else if (state.playing == expectedPlaying_)
-    {
-        updatePlayPauseIcon(state.playing);
-        setPlayPending(false);
+        if (state.spotifyConnected)
+        {
+            lv_label_set_text(
+                title_,
+                state.title.length() > 0
+                    ? state.title.c_str()
+                    : "Unknown title"
+            );
+            lv_label_set_text(
+                artist_,
+                state.artist.length() > 0
+                    ? state.artist.c_str()
+                    : "Unknown artist"
+            );
+            lv_label_set_text(
+                album_,
+                state.album.length() > 0
+                    ? state.album.c_str()
+                    : "Unknown album"
+            );
+        }
+        else
+        {
+            lv_label_set_text(title_, "Media not connected");
+            lv_label_set_text(
+                artist_,
+                "Start playback on your computer"
+            );
+            lv_label_set_text(album_, "");
+        }
     }
 
-    updateModeIndicators();
-    updateStatusArea();
-    updateNativeQueue();
-    updateNativeMixer();
-    updateProgressNow(true);
+    if (sourceChanged)
+    {
+        updateSourceButton();
+    }
+
+    if (playbackChanged || playPending_)
+    {
+        if (!playPending_)
+        {
+            updatePlayPauseIcon(state.playing);
+        }
+        else if (state.playing == expectedPlaying_)
+        {
+            updatePlayPauseIcon(state.playing);
+            setPlayPending(false);
+        }
+    }
+
+    if (modeChanged)
+    {
+        updateModeIndicators();
+    }
+
+    if (statusChanged)
+    {
+        updateStatusArea();
+    }
+
+    if (queueChanged)
+    {
+        updateNativeQueue();
+    }
+
+    if (mixerChanged)
+    {
+        updateNativeMixer();
+    }
+
+    if (progressChanged)
+    {
+        updateProgressNow(true);
+    }
 }
 
 void SpotifyUI::updateSourceButton()
@@ -1432,10 +1592,8 @@ void SpotifyUI::updatePageVisibility()
         state_.viewMode.equalsIgnoreCase("now_playing");
     const bool utilityPage = !nowPlaying;
 
-    if (backgroundImageObject_ != nullptr)
-    {
-        lv_obj_move_background(backgroundImageObject_);
-    }
+    // The background is already behind the UI. Avoid reordering the full
+    // LVGL object tree on every page-state update.
 
     // Navigation stays available on every page.
     setObjectVisible(viewButton_, true);
