@@ -1684,8 +1684,7 @@ void SpotifyUI::updatePageVisibility()
     setObjectVisible(mixerMuteButton_, mixerPage);
     setObjectVisible(mixerUpButton_, mixerPage);
 
-    const bool showNotification =
-        !state_.notificationText.isEmpty();
+    const bool showNotification = false;
 
     setObjectVisible(
         notificationBanner_,
@@ -2340,7 +2339,7 @@ void SpotifyUI::viewEvent(lv_event_t* event)
     else if (code == LV_EVENT_LONG_PRESSED)
     {
         Serial.println(
-            "{\"type\":\"command\",\"command\":\"view_now_playing\"}"
+            "{\"type\":\"command\",\"command\":\"view_previous\"}"
         );
     }
 }

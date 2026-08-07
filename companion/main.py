@@ -318,6 +318,36 @@ def update_native_queue_window(
     return queue, selected
 
 
+def previous_v8_view(v8: V8Controller) -> str:
+    original = v8.state.view
+    visited = [original]
+
+    for _ in range(16):
+        next_view = v8.next_view()
+
+        if next_view == original:
+            if len(visited) <= 1:
+                return original
+
+            target = visited[-1]
+
+            # next_view() has wrapped us back to the original page. Walk
+            # forward again until we reach the page immediately before it.
+            for _ in range(16):
+                if v8.state.view == target:
+                    return target
+                v8.next_view()
+
+            return v8.state.view
+
+        if next_view in visited:
+            return v8.state.view
+
+        visited.append(next_view)
+
+    return v8.state.view
+
+
 async def process_display_command(
     message: dict[str, Any] | None,
     spotify: SpotifyController,
@@ -342,6 +372,18 @@ async def process_display_command(
             f"View: {selected_view.replace('_', ' ').title()}"
         )
         log(f"V8 view changed to: {selected_view}")
+        await send_current_state(
+            spotify,
+            volume,
+            state,
+            serial_manager,
+        )
+        return
+
+    if command == "view_previous":
+        selected_view = previous_v8_view(v8)
+        state.view_mode = selected_view
+        log(f"V8 view changed backward to: {selected_view}")
         await send_current_state(
             spotify,
             volume,
@@ -1207,7 +1249,7 @@ async def v8_view_loop(
     while not stop_event.is_set():
         view = v8.state.view
         state.view_mode = view
-        state.notification_text = _notification_overlay.current_text()
+        state.notification_text = ""
 
         v8.notifications.update_status(
             discord_call=state.discord_call_active,
