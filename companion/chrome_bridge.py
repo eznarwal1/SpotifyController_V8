@@ -222,7 +222,7 @@ class ChromeBridge:
                 queue_items=[
                     str(item) for item in raw.get("queue_items", [])
                     if str(item).strip()
-                ][:30],
+                ][:250],
                 received_at=now,
             )
 

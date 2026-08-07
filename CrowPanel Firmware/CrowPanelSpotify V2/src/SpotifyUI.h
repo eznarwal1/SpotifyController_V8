@@ -35,6 +35,7 @@ private:
     static void utilityPreviousEvent(lv_event_t* event);
     static void utilitySelectEvent(lv_event_t* event);
     static void utilityNextEvent(lv_event_t* event);
+    static void queueHomeEvent(lv_event_t* event);
     static void mixerDownEvent(lv_event_t* event);
     static void mixerMuteEvent(lv_event_t* event);
     static void mixerUpEvent(lv_event_t* event);
@@ -112,6 +113,8 @@ private:
     lv_obj_t* utilitySelectLabel_;
     lv_obj_t* utilityNextButton_;
     lv_obj_t* utilityNextLabel_;
+    lv_obj_t* queueHomeButton_;
+    lv_obj_t* queueHomeLabel_;
     lv_obj_t* mixerDownButton_;
     lv_obj_t* mixerDownLabel_;
     lv_obj_t* mixerMuteButton_;

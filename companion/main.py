@@ -156,6 +156,51 @@ async def send_current_state(
         )
 
 
+def update_native_queue_window(
+    spotify: SpotifyController,
+    state: AppState,
+    v8: V8Controller,
+) -> tuple[list[str], int]:
+    # Keep the complete Queue index on the PC while sending only four rows.
+    queue = spotify._chrome_bridge.selected_or_playing_queue()
+
+    (
+        queue_source,
+        _queue_available,
+        _queue_status,
+    ) = spotify._chrome_bridge.selected_queue_status()
+
+    total = len(queue)
+
+    if total == 0:
+        v8.state.queue_index = 0
+        state.queue_source = queue_source
+        state.queue_entries = []
+        state.queue_selected_index = 0
+        return queue, 0
+
+    selected = max(0, min(v8.state.queue_index, total - 1))
+    v8.state.queue_index = selected
+
+    start = max(
+        0,
+        min(
+            selected - 1,
+            max(0, total - 4),
+        ),
+    )
+
+    state.queue_entries = queue[start:start + 4]
+    state.queue_selected_index = selected - start
+    state.queue_source = (
+        f"{queue_source}  {selected + 1}/{total}"
+        if queue_source
+        else f"{selected + 1}/{total}"
+    )
+
+    return queue, selected
+
+
 async def process_display_command(
     message: dict[str, Any] | None,
     spotify: SpotifyController,
@@ -197,28 +242,68 @@ async def process_display_command(
         )
         return
 
-    if command == "utility_previous":
-        v8.move_selection(-1)
+    if command == "queue_home":
+        if v8.state.view == "queue":
+            v8.state.queue_index = 0
+            update_native_queue_window(spotify, state, v8)
+
+            if serial_manager.is_connected:
+                await asyncio.to_thread(
+                    serial_manager.send_line,
+                    make_state_message(state),
+                )
+
+            log("Queue selection returned to beginning.")
         return
 
-    if command == "utility_next":
-        v8.move_selection(1)
+    if command in ("utility_previous", "utility_next"):
+        if v8.state.view == "queue":
+            queue = spotify._chrome_bridge.selected_or_playing_queue()
+
+            if queue:
+                direction = -1 if command == "utility_previous" else 1
+                v8.state.queue_index = max(
+                    0,
+                    min(
+                        v8.state.queue_index + direction,
+                        len(queue) - 1,
+                    ),
+                )
+                update_native_queue_window(spotify, state, v8)
+
+                if serial_manager.is_connected:
+                    await asyncio.to_thread(
+                        serial_manager.send_line,
+                        make_state_message(state),
+                    )
+            return
+
+        v8.move_selection(
+            -1 if command == "utility_previous" else 1
+        )
         return
 
     if command == "utility_select":
-        result = v8.activate()
+        if v8.state.view == "queue":
+            queue = spotify._chrome_bridge.selected_or_playing_queue()
 
-        if result.startswith("queue_play:"):
-            queue_index = int(result.split(":", 1)[1])
-            success = spotify._chrome_bridge.activate_queue_item(
-                queue_index
-            )
-            log(
-                "Queue selection "
-                f"{queue_index}: {'sent' if success else 'unavailable'}"
-            )
-        else:
-            log(f"V8 action: {result}")
+            if queue:
+                queue_index = max(
+                    0,
+                    min(v8.state.queue_index, len(queue) - 1),
+                )
+                success = spotify._chrome_bridge.activate_queue_item(
+                    queue_index
+                )
+                log(
+                    "Queue selection "
+                    f"{queue_index}: "
+                    f"{'sent' if success else 'unavailable'}"
+                )
+            return
+
+        result = v8.activate()
+        log(f"V8 action: {result}")
         return
 
     if command == "mixer_volume_down":
@@ -235,12 +320,29 @@ async def process_display_command(
         return
 
     if v8.state.view != "now_playing":
-        if command == "previous":
-            v8.move_selection(-1)
-            return
+        if command in ("previous", "next"):
+            if v8.state.view == "queue":
+                queue = spotify._chrome_bridge.selected_or_playing_queue()
 
-        if command == "next":
-            v8.move_selection(1)
+                if queue:
+                    direction = -1 if command == "previous" else 1
+                    v8.state.queue_index = max(
+                        0,
+                        min(
+                            v8.state.queue_index + direction,
+                            len(queue) - 1,
+                        ),
+                    )
+                    update_native_queue_window(spotify, state, v8)
+
+                    if serial_manager.is_connected:
+                        await asyncio.to_thread(
+                            serial_manager.send_line,
+                            make_state_message(state),
+                        )
+                return
+
+            v8.move_selection(-1 if command == "previous" else 1)
             return
 
         if command == "play_pause":
@@ -845,20 +947,16 @@ async def v8_view_loop(
             await asyncio.sleep(0.25)
             continue
 
-        queue = spotify._chrome_bridge.selected_or_playing_queue()
+        queue, _queue_selected = update_native_queue_window(
+            spotify,
+            state,
+            v8,
+        )
         (
             queue_source,
             queue_available,
             queue_status,
         ) = spotify._chrome_bridge.selected_queue_status()
-        native_queue = build_queue_state(
-            queue,
-            source=queue_source,
-            selected_index=v8.state.queue_index,
-        )
-        state.queue_source = native_queue.source
-        state.queue_entries = native_queue.display_rows()
-        state.queue_selected_index = native_queue.selected_index
 
         # V9 Queue is rendered locally by LVGL. Do not transmit the legacy
         # utility-page bitmap while this page is active.

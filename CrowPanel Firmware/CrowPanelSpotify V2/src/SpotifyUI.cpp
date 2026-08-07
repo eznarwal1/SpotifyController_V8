@@ -148,6 +148,8 @@ SpotifyUI::SpotifyUI()
       utilitySelectLabel_(nullptr),
       utilityNextButton_(nullptr),
       utilityNextLabel_(nullptr),
+      queueHomeButton_(nullptr),
+      queueHomeLabel_(nullptr),
       mixerDownButton_(nullptr),
       mixerDownLabel_(nullptr),
       mixerMuteButton_(nullptr),
@@ -560,6 +562,20 @@ void SpotifyUI::create(lv_obj_t* screen)
     utilityNextLabel_ = lv_label_create(utilityNextButton_);
     lv_label_set_text(utilityNextLabel_, "Next");
     lv_obj_center(utilityNextLabel_);
+
+    queueHomeButton_ = lv_btn_create(screen);
+    lv_obj_set_size(queueHomeButton_, 90, 42);
+    lv_obj_set_pos(queueHomeButton_, 650, 242);
+    lv_obj_add_event_cb(
+        queueHomeButton_,
+        queueHomeEvent,
+        LV_EVENT_RELEASED,
+        nullptr
+    );
+    queueHomeLabel_ = lv_label_create(queueHomeButton_);
+    lv_label_set_text(queueHomeLabel_, "Home");
+    lv_obj_center(queueHomeLabel_);
+    lv_obj_add_flag(queueHomeButton_, LV_OBJ_FLAG_HIDDEN);
 
     mixerDownButton_ = lv_btn_create(screen);
     lv_obj_set_size(mixerDownButton_, 56, 42);
@@ -1659,6 +1675,11 @@ void SpotifyUI::updatePageVisibility()
         selectableUtility
     );
 
+    setObjectVisible(
+        queueHomeButton_,
+        queuePage
+    );
+
     setObjectVisible(mixerDownButton_, mixerPage);
     setObjectVisible(mixerMuteButton_, mixerPage);
     setObjectVisible(mixerUpButton_, mixerPage);
@@ -2259,6 +2280,16 @@ void SpotifyUI::utilityNextEvent(lv_event_t* event)
     {
         Serial.println(
             "{\"type\":\"command\",\"command\":\"utility_next\"}"
+        );
+    }
+}
+
+void SpotifyUI::queueHomeEvent(lv_event_t* event)
+{
+    if (lv_event_get_code(event) == LV_EVENT_RELEASED)
+    {
+        Serial.println(
+            "{\"type\":\"command\",\"command\":\"queue_home\"}"
         );
     }
 }

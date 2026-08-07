@@ -568,7 +568,7 @@
   function spotifyQueueItems() {
     return spotifyQueueRows()
       .map((entry) => entry.text)
-      .slice(0, 30);
+      .slice(0, 250);
   }
 
 
