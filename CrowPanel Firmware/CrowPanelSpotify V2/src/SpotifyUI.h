@@ -32,6 +32,7 @@ private:
     static void discordMuteEvent(lv_event_t* event);
     static void discordDeafenEvent(lv_event_t* event);
     static void viewEvent(lv_event_t* event);
+    static void screenGestureEvent(lv_event_t* event);
     static void utilityPreviousEvent(lv_event_t* event);
     static void utilitySelectEvent(lv_event_t* event);
     static void utilityNextEvent(lv_event_t* event);

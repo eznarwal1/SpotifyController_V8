@@ -168,6 +168,13 @@ SpotifyUI::SpotifyUI()
 
 void SpotifyUI::create(lv_obj_t* screen)
 {
+    lv_obj_add_event_cb(
+        screen,
+        screenGestureEvent,
+        LV_EVENT_GESTURE,
+        nullptr
+    );
+
     lv_obj_set_style_bg_color(
         screen,
         lv_color_hex(BACKGROUND_COLOR),
@@ -2325,6 +2332,36 @@ void SpotifyUI::mixerUpEvent(lv_event_t* event)
         );
     }
 }
+
+void SpotifyUI::screenGestureEvent(lv_event_t* event)
+{
+    if (lv_event_get_code(event) != LV_EVENT_GESTURE)
+    {
+        return;
+    }
+
+    lv_indev_t* input = lv_indev_get_act();
+    if (input == nullptr)
+    {
+        return;
+    }
+
+    const lv_dir_t direction = lv_indev_get_gesture_dir(input);
+
+    if (direction == LV_DIR_LEFT)
+    {
+        Serial.println(
+            "{\"type\":\"command\",\"command\":\"view_next\"}"
+        );
+    }
+    else if (direction == LV_DIR_RIGHT)
+    {
+        Serial.println(
+            "{\"type\":\"command\",\"command\":\"view_previous\"}"
+        );
+    }
+}
+
 
 void SpotifyUI::viewEvent(lv_event_t* event)
 {
