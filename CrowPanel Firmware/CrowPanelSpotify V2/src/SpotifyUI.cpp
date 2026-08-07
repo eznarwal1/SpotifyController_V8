@@ -617,8 +617,8 @@ void SpotifyUI::create(lv_obj_t* screen)
     lv_obj_center(mixerUpLabel_);
 
     notificationBanner_ = lv_label_create(screen);
-    lv_obj_set_width(notificationBanner_, 450);
-    lv_obj_set_pos(notificationBanner_, 300, 344);
+    lv_obj_set_width(notificationBanner_, 470);
+    lv_obj_set_pos(notificationBanner_, 290, 350);
     lv_label_set_long_mode(
         notificationBanner_,
         LV_LABEL_LONG_DOT
@@ -1685,7 +1685,6 @@ void SpotifyUI::updatePageVisibility()
     setObjectVisible(mixerUpButton_, mixerPage);
 
     const bool showNotification =
-        nowPlaying &&
         !state_.notificationText.isEmpty();
 
     setObjectVisible(
@@ -1699,6 +1698,10 @@ void SpotifyUI::updatePageVisibility()
             notificationBanner_,
             state_.notificationText.c_str()
         );
+
+        // Notifications are overlays. Keep the banner above native Queue,
+        // Mixer, artwork, and streamed utility-page objects.
+        lv_obj_move_foreground(notificationBanner_);
     }
 
     if (nowPlaying)

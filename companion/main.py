@@ -6,6 +6,7 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 import threading
+import time
 from typing import Any
 
 from protocol import make_state_message
@@ -61,6 +62,61 @@ class QueueFollowState:
 _queue_follow_state = QueueFollowState()
 
 
+@dataclass(slots=True)
+class TransientNotification:
+    text: str = ""
+    expires_at: float = 0.0
+
+
+class NotificationOverlay:
+    """Own the short-lived text shown by the native LVGL banner."""
+
+    def __init__(self) -> None:
+        self._current = TransientNotification()
+
+    def show(
+        self,
+        text: str,
+        duration_seconds: float = 3.0,
+    ) -> None:
+        text = " ".join(str(text or "").split()).strip()
+
+        if not text:
+            return
+
+        self._current = TransientNotification(
+            text=text[:180],
+            expires_at=time.monotonic() + max(
+                0.5,
+                float(duration_seconds),
+            ),
+        )
+        log(f"Notification: {self._current.text}")
+
+    def current_text(self) -> str:
+        if (
+            self._current.text
+            and time.monotonic() < self._current.expires_at
+        ):
+            return self._current.text
+
+        if self._current.text:
+            self._current = TransientNotification()
+
+        return ""
+
+
+_notification_overlay = NotificationOverlay()
+
+
+def show_notification(
+    text: str,
+    duration_seconds: float = 3.0,
+) -> None:
+    _notification_overlay.show(
+        text,
+        duration_seconds=duration_seconds,
+    )
 
 
 def log(message: str) -> None:
@@ -282,6 +338,9 @@ async def process_display_command(
     if command == "view_next":
         selected_view = v8.next_view()
         state.view_mode = selected_view
+        show_notification(
+            f"View: {selected_view.replace('_', ' ').title()}"
+        )
         log(f"V8 view changed to: {selected_view}")
         await send_current_state(
             spotify,
@@ -294,6 +353,7 @@ async def process_display_command(
     if command == "view_now_playing":
         v8.now_playing()
         state.view_mode = "now_playing"
+        show_notification("View: Now Playing")
         log("V8 view changed to: now_playing")
         await send_current_state(
             spotify,
@@ -316,6 +376,7 @@ async def process_display_command(
                     make_state_message(state),
                 )
 
+            show_notification("Queue: Back to beginning")
             log("Queue selection returned to beginning.")
         return
 
@@ -363,6 +424,19 @@ async def process_display_command(
                 if success:
                     _queue_follow_state.manual_navigation = False
                     _queue_follow_state.selected_track = ""
+                    selected_name = (
+                        queue[queue_index]
+                        if 0 <= queue_index < len(queue)
+                        else "Selected track"
+                    )
+                    show_notification(
+                        f"Queue selected: {selected_name}",
+                        duration_seconds=3.5,
+                    )
+                else:
+                    show_notification(
+                        "Queue selection unavailable"
+                    )
 
                 log(
                     "Queue selection "
@@ -447,19 +521,25 @@ async def process_display_command(
         delay = 0.05
     elif command == "source":
         selected_source = await spotify.cycle_media_source()
+        show_notification(f"Source: {selected_source}")
         log(f"Selected media source: {selected_source}")
         success = True
         delay = 0.05
     elif command == "source_auto":
         spotify.use_automatic_source_selection()
+        show_notification("Source: Auto")
         log("Selected media source: Auto")
         success = True
         delay = 0.05
     elif command == "discord_mute":
         success = spotify.toggle_discord_mute()
+        if success:
+            show_notification("Discord microphone toggled")
         delay = 0.15
     elif command == "discord_deafen":
         success = spotify.toggle_discord_deafen()
+        if success:
+            show_notification("Discord deafen toggled")
         delay = 0.15
     elif command == "volume":
         amount = message.get("amount")
@@ -496,6 +576,9 @@ async def polling_loop(
     stop_event: asyncio.Event,
 ) -> None:
     last_connected: bool | None = None
+    last_media_connected: bool | None = None
+    last_discord_call: bool | None = None
+    low_battery_latched = False
 
     while not stop_event.is_set():
         try:
@@ -509,7 +592,57 @@ async def polling_loop(
                     f"connected={state.display_connected}, "
                     f"port={state.display_port!r}"
                 )
+
+                if (
+                    state.display_connected
+                    and last_connected is False
+                ):
+                    show_notification("Display reconnected")
+
                 last_connected = state.display_connected
+
+            if (
+                last_media_connected is not None
+                and state.spotify_connected != last_media_connected
+            ):
+                show_notification(
+                    "Media connected"
+                    if state.spotify_connected
+                    else "Media disconnected"
+                )
+
+            last_media_connected = state.spotify_connected
+
+            if (
+                last_discord_call is not None
+                and state.discord_call_active != last_discord_call
+            ):
+                show_notification(
+                    "Discord call connected"
+                    if state.discord_call_active
+                    else "Discord call disconnected"
+                )
+
+            last_discord_call = state.discord_call_active
+
+            low_battery_now = (
+                state.battery_present
+                and not state.battery_charging
+                and state.battery_percent <= 20
+            )
+
+            if low_battery_now and not low_battery_latched:
+                show_notification(
+                    f"Low battery: {state.battery_percent}%",
+                    duration_seconds=4.0,
+                )
+                low_battery_latched = True
+            elif (
+                not low_battery_now
+                or state.battery_percent >= 25
+                or state.battery_charging
+            ):
+                low_battery_latched = False
 
             # Metadata is sent independently of artwork retrieval.
             # A slow network lookup can no longer delay title/artist/progress.
@@ -1074,7 +1207,7 @@ async def v8_view_loop(
     while not stop_event.is_set():
         view = v8.state.view
         state.view_mode = view
-        state.notification_text = v8.notifications.latest_text()
+        state.notification_text = _notification_overlay.current_text()
 
         v8.notifications.update_status(
             discord_call=state.discord_call_active,
