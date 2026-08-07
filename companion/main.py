@@ -51,6 +51,16 @@ class ArtworkTransferState:
     background_digest: str = ""
 
 
+@dataclass(slots=True)
+class QueueFollowState:
+    previous_queue: tuple[str, ...] = ()
+    selected_track: str = ""
+    manual_navigation: bool = False
+
+
+_queue_follow_state = QueueFollowState()
+
+
 
 
 def log(message: str) -> None:
@@ -171,7 +181,13 @@ def update_native_queue_window(
     state: AppState,
     v8: V8Controller,
 ) -> tuple[list[str], int]:
-    # Keep the complete Queue index on the PC while sending only four rows.
+    """
+    Keep the complete Queue index on the PC and send only four rows.
+
+    When the user is at Home, Queue changes automatically follow Spotify's
+    new first upcoming track. If the user has browsed deeper into the Queue,
+    preserve the selected song across Spotify DOM refreshes whenever possible.
+    """
     queue = spotify._chrome_bridge.selected_or_playing_queue()
 
     (
@@ -187,9 +203,41 @@ def update_native_queue_window(
         state.queue_source = queue_source
         state.queue_entries = []
         state.queue_selected_index = 0
+
+        _queue_follow_state.previous_queue = ()
+        _queue_follow_state.selected_track = ""
+        _queue_follow_state.manual_navigation = False
         return queue, 0
 
-    selected = max(0, min(v8.state.queue_index, total - 1))
+    queue_tuple = tuple(queue)
+    queue_changed = (
+        bool(_queue_follow_state.previous_queue)
+        and queue_tuple != _queue_follow_state.previous_queue
+    )
+
+    if queue_changed:
+        if not _queue_follow_state.manual_navigation:
+            # Home/follow mode always tracks Spotify's first upcoming item.
+            v8.state.queue_index = 0
+        elif _queue_follow_state.selected_track:
+            # Preserve the browsed-to song if Spotify shifted the Queue because
+            # playback advanced or the DOM was rebuilt.
+            matching = [
+                index
+                for index, item in enumerate(queue)
+                if item == _queue_follow_state.selected_track
+            ]
+            if matching:
+                old_index = v8.state.queue_index
+                v8.state.queue_index = min(
+                    matching,
+                    key=lambda index: abs(index - old_index),
+                )
+
+    selected = max(
+        0,
+        min(v8.state.queue_index, total - 1),
+    )
     v8.state.queue_index = selected
 
     start = max(
@@ -207,6 +255,9 @@ def update_native_queue_window(
         if queue_source
         else f"{selected + 1}/{total}"
     )
+
+    _queue_follow_state.previous_queue = queue_tuple
+    _queue_follow_state.selected_track = queue[selected]
 
     return queue, selected
 
@@ -255,6 +306,8 @@ async def process_display_command(
     if command == "queue_home":
         if v8.state.view == "queue":
             v8.state.queue_index = 0
+            _queue_follow_state.manual_navigation = False
+            _queue_follow_state.selected_track = ""
             update_native_queue_window(spotify, state, v8)
 
             if serial_manager.is_connected:
@@ -272,6 +325,7 @@ async def process_display_command(
 
             if queue:
                 direction = -1 if command == "utility_previous" else 1
+                _queue_follow_state.manual_navigation = True
                 v8.state.queue_index = max(
                     0,
                     min(
@@ -305,6 +359,11 @@ async def process_display_command(
                 success = spotify._chrome_bridge.activate_queue_item(
                     queue_index
                 )
+
+                if success:
+                    _queue_follow_state.manual_navigation = False
+                    _queue_follow_state.selected_track = ""
+
                 log(
                     "Queue selection "
                     f"{queue_index}: "
@@ -336,6 +395,7 @@ async def process_display_command(
 
                 if queue:
                     direction = -1 if command == "previous" else 1
+                    _queue_follow_state.manual_navigation = True
                     v8.state.queue_index = max(
                         0,
                         min(

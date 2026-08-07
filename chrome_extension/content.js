@@ -716,36 +716,77 @@
     }
   }
 
-  async function activateQueueItem(index) {
+    async function activateQueueItem(index) {
     await ensureSpotifyQueueVisible();
 
     const elements = queueElements();
     const target = elements[index];
 
     if (!(target instanceof HTMLElement)) {
+      console.warn(
+        "[Universal Media Controller] Queue row not found:",
+        index,
+        elements.length
+      );
       return false;
     }
 
-    const clickable =
-      target.querySelector(
-        [
-          '[class*="legacy-list-row__interactive"]',
-          "[role='button']",
-          "button",
-          "a[href]",
-        ].join(",")
-      ) || target;
-
-    if (!(clickable instanceof HTMLElement)) {
-      return false;
-    }
-
-    clickable.scrollIntoView({
+    target.scrollIntoView({
       block: "center",
       behavior: "auto",
     });
 
-    clickable.click();
+    /*
+     * Spotify's current Queue uses LI[role="row"] elements.
+     * A normal .click() on an inner element may only focus/select it.
+     * Playback behaves like activating a desktop track row, so send a
+     * double-click to the row's main interactive/title area.
+     */
+    const clickable =
+      target.querySelector(
+        [
+          '[class*="legacy-list-row__interactive"]',
+          '[class*="legacy-list-row-title"]',
+          '[class*="list-row-title"]',
+        ].join(",")
+      ) || target;
+
+    const rect = clickable.getBoundingClientRect();
+    const clientX = Math.round(rect.left + rect.width / 2);
+    const clientY = Math.round(rect.top + rect.height / 2);
+
+    const eventOptions = {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX,
+      clientY,
+      button: 0,
+      buttons: 1,
+    };
+
+    clickable.dispatchEvent(
+      new MouseEvent("mousedown", eventOptions)
+    );
+    clickable.dispatchEvent(
+      new MouseEvent("mouseup", eventOptions)
+    );
+    clickable.dispatchEvent(
+      new MouseEvent("click", eventOptions)
+    );
+    clickable.dispatchEvent(
+      new MouseEvent("dblclick", {
+        ...eventOptions,
+        detail: 2,
+      })
+    );
+
+    console.info(
+      "[Universal Media Controller] Activated queue row",
+      index,
+      cleanSpotifyText(target.textContent)
+    );
+
     return true;
   }
 
