@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
+import hashlib
 from datetime import datetime
 from pathlib import Path
 import threading
@@ -19,7 +21,7 @@ from v9.mixer_model import build_mixer_state
 from background_renderer import (
     BACKGROUND_WIDTH,
     BACKGROUND_HEIGHT,
-    render_blurred_background,
+    render_and_cache_blurred_background,
 )
 from metadata_renderer import (
     MetadataPanel,
@@ -36,11 +38,19 @@ from metadata_renderer import (
 
 ARTWORK_WIDTH = 210
 ARTWORK_HEIGHT = 210
-ARTWORK_RETRY_SECONDS = 2.0
-ARTWORK_METADATA_DELAY_SECONDS = 0.02
+ARTWORK_RETRY_SECONDS = 15.0
+ARTWORK_METADATA_DELAY_SECONDS = 0.12
 ARTWORK_LOOP_INTERVAL_SECONDS = 0.05
 DEBUG_LOG = Path(__file__).with_name("debug.log")
 _log_lock = threading.Lock()
+
+
+@dataclass(slots=True)
+class ArtworkTransferState:
+    artwork_digest: str = ""
+    background_digest: str = ""
+
+
 
 
 def log(message: str) -> None:
@@ -478,8 +488,16 @@ async def prepare_and_send_artwork(
     spotify: SpotifyController,
     serial_manager: SerialManager,
     state: AppState,
+    transfer_state: ArtworkTransferState,
 ) -> bool:
-    """Prepare and send one track's artwork without blocking metadata polling."""
+    """
+    Prepare the newest track's genuine artwork without disturbing the
+    currently displayed image while lookup is in progress.
+
+    The track identity is checked before every serial transfer. If playback
+    changes during a slow lookup, this worker exits without sending stale
+    background data. Identical album art is not retransmitted.
+    """
     loop = asyncio.get_running_loop()
 
     try:
@@ -499,13 +517,13 @@ async def prepare_and_send_artwork(
                 f"{track_key!r}"
             )
         else:
-            # Briefly allow Spotify's title/album metadata to settle after a skip.
+            # Let browser/WinRT metadata settle before an expensive lookup.
             await asyncio.sleep(ARTWORK_METADATA_DELAY_SECONDS)
 
             if current_track_key(state) != track_key:
                 log(
-                    "Skipped network artwork lookup because track changed: "
-                    f"{track_key!r}"
+                    "Artwork lookup cancelled before network request because "
+                    f"the track changed: {track_key!r}"
                 )
                 return False
 
@@ -519,10 +537,13 @@ async def prepare_and_send_artwork(
             )
             lookup_elapsed = loop.time() - lookup_started
             log(
-                f"Artwork network preparation finished in "
+                "Artwork network preparation finished in "
                 f"{lookup_elapsed:.3f}s for {track_key!r}"
             )
 
+    except asyncio.CancelledError:
+        log(f"Artwork worker cancelled for stale track {track_key!r}")
+        raise
     except Exception as exc:
         log(
             "Artwork retrieval failed: "
@@ -530,7 +551,12 @@ async def prepare_and_send_artwork(
         )
         return False
 
+    # No genuine art was found. Keep the existing art/background on-screen.
     if artwork is None:
+        log(
+            "No genuine artwork found; preserving the currently displayed "
+            f"artwork for {track_key!r}"
+        )
         return False
 
     if current_track_key(state) != track_key:
@@ -543,62 +569,94 @@ async def prepare_and_send_artwork(
     if not serial_manager.is_connected:
         return False
 
+    artwork_digest = hashlib.sha256(artwork).hexdigest()
+
+    # Songs from the same album usually share the exact same artwork.
+    if artwork_digest == transfer_state.artwork_digest:
+        log(
+            "Artwork is identical to the displayed album art; "
+            f"skipping serial retransmission for {track_key!r}"
+        )
+        return True
+
     try:
+        background_digest, background = await asyncio.to_thread(
+            render_and_cache_blurred_background,
+            artwork,
+            ARTWORK_WIDTH,
+            ARTWORK_HEIGHT,
+        )
+
+        # Re-check immediately before the large artwork transfer.
+        if current_track_key(state) != track_key:
+            log(
+                "Artwork became stale before serial transfer; "
+                f"discarding {track_key!r}"
+            )
+            return False
+
         send_started = loop.time()
-        sent = await asyncio.to_thread(
+        artwork_sent = await asyncio.to_thread(
             serial_manager.send_artwork,
             artwork,
             ARTWORK_WIDTH,
             ARTWORK_HEIGHT,
         )
 
-        if sent:
-            try:
-                background = await asyncio.to_thread(
-                    render_blurred_background,
-                    artwork,
-                    ARTWORK_WIDTH,
-                    ARTWORK_HEIGHT,
-                )
-                background_sent = await asyncio.to_thread(
-                    serial_manager.send_background_image,
+        if not artwork_sent:
+            return False
+
+        transfer_state.artwork_digest = artwork_digest
+
+        # The track can change while the 88 KB artwork packet is in flight.
+        # In that case, do not follow it with an obsolete 800x480 background.
+        if current_track_key(state) != track_key:
+            log(
+                "Track changed during artwork transfer; suppressing stale "
+                f"background for {track_key!r}"
+            )
+            return False
+
+        if background_digest != transfer_state.background_digest:
+            background_sent = await asyncio.to_thread(
+                serial_manager.send_background_image,
+                background,
+                BACKGROUND_WIDTH,
+                BACKGROUND_HEIGHT,
+            )
+
+            if background_sent:
+                transfer_state.background_digest = background_digest
+
+                # Only update the PC-rendered metadata/source compositor after
+                # the same background was accepted by the display.
+                await asyncio.to_thread(
+                    set_ui_background,
                     background,
                     BACKGROUND_WIDTH,
                     BACKGROUND_HEIGHT,
                 )
-
-                if background_sent:
-                    await asyncio.to_thread(
-                        set_ui_background,
-                        background,
-                        BACKGROUND_WIDTH,
-                        BACKGROUND_HEIGHT,
-                    )
-                else:
-                    log(
-                        "Background packet was not sent; keeping the "
-                        "existing metadata/source background to avoid seams"
-                    )
-
+            else:
                 log(
-                    "Blurred artwork background send returned "
-                    f"{background_sent}"
+                    "Background packet was not sent; keeping the previous "
+                    "metadata/source compositor background"
                 )
-            except Exception as exc:
-                log(
-                    "Blurred background preparation failed: "
-                    f"{type(exc).__name__}: {exc}"
-                )
+        else:
+            log("Blurred background unchanged; skipping retransmission.")
 
         send_elapsed = loop.time() - send_started
         log(
-            f"Artwork serial send returned {sent} "
-            f"in {send_elapsed:.3f}s"
+            "Artwork/background transaction completed in "
+            f"{send_elapsed:.3f}s for {track_key!r}"
         )
-        return sent
+        return True
+
+    except asyncio.CancelledError:
+        log(f"Artwork transfer cancelled for stale track {track_key!r}")
+        raise
     except Exception as exc:
         log(
-            f"Artwork send failed: "
+            "Artwork/background send failed: "
             f"{type(exc).__name__}: {exc}"
         )
         return False
@@ -741,8 +799,9 @@ async def artwork_loop(
     """
     Run artwork retrieval as a latest-track background job.
 
-    Cache hits are sent immediately. Cache misses use the network in this
-    separate task, so title, artist, album, and progress keep updating.
+    Only the newest track is allowed to complete. When playback changes, the
+    previous coroutine is cancelled immediately; any blocking network thread
+    may finish in the background, but it can no longer send stale packets.
     """
     last_sent_key: tuple[str, str, str] | None = None
     last_attempted_key: tuple[str, str, str] | None = None
@@ -750,13 +809,29 @@ async def artwork_loop(
     active_key: tuple[str, str, str] | None = None
     active_task: asyncio.Task[bool] | None = None
     was_connected = False
+    transfer_state = ArtworkTransferState()
 
-    log("V6 universal artwork loop started.")
+    log("V9.08 artwork stability loop started.")
 
     while not stop_event.is_set():
         connected = serial_manager.is_connected
         track_key = current_track_key(state)
         now = asyncio.get_running_loop().time()
+
+        # A new song wins immediately. Do not wait for an obsolete lookup.
+        if (
+            active_task is not None
+            and not active_task.done()
+            and active_key is not None
+            and track_key != active_key
+        ):
+            log(
+                "Cancelling stale artwork worker: "
+                f"{active_key!r} -> {track_key!r}"
+            )
+            active_task.cancel()
+            active_task = None
+            active_key = None
 
         if active_task is not None and active_task.done():
             try:
@@ -779,6 +854,14 @@ async def artwork_loop(
         if not connected:
             was_connected = False
             last_sent_key = None
+            transfer_state.artwork_digest = ""
+            transfer_state.background_digest = ""
+
+            if active_task is not None:
+                active_task.cancel()
+                active_task = None
+                active_key = None
+
             await asyncio.sleep(0.20)
             continue
 
@@ -795,9 +878,6 @@ async def artwork_loop(
             and retry_allowed
         )
 
-        # Start only one network worker at a time. If the track changes while
-        # it runs, the worker discards stale data, and the next loop starts the
-        # newest track immediately afterward.
         if needs_artwork and active_task is None:
             last_attempted_key = track_key
             last_attempt_time = now
@@ -808,6 +888,7 @@ async def artwork_loop(
                     spotify,
                     serial_manager,
                     state,
+                    transfer_state,
                 )
             )
 

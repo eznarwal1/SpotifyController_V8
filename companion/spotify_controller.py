@@ -35,7 +35,7 @@ MEMORY_CACHE_LIMIT = 50
 
 # V4 shares one cached image across tracks from the same artist/album.
 # This prevents a new MusicBrainz lookup for every song on the same album.
-CACHE_SCHEMA_VERSION = "v4-album-shared"
+CACHE_SCHEMA_VERSION = "v5-real-art-only"
 
 
 def _log(message: str) -> None:
@@ -910,10 +910,10 @@ class SpotifyController:
             f"No Cover Art Archive image for "
             f"{title!r} / {artist!r} / {album!r}"
         )
-        return self._make_placeholder_bytes_sync(
-            self._current_application_name,
-            title,
-        )
+        # Keep the artwork already displayed when no genuine cover exists.
+        # Returning None prevents a generated placeholder from replacing it
+        # or being cached as album artwork.
+        return None
 
     @staticmethod
     def _image_to_rgb565(raw: bytes, width: int, height: int) -> bytes:

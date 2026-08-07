@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
 import struct
 
 from PIL import Image, ImageEnhance, ImageFilter
@@ -7,6 +9,91 @@ from PIL import Image, ImageEnhance, ImageFilter
 
 BACKGROUND_WIDTH = 800
 BACKGROUND_HEIGHT = 480
+BACKGROUND_CACHE_DIR = Path(__file__).resolve().parent / "background_cache"
+BACKGROUND_CACHE_VERSION = "v1"
+BACKGROUND_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def background_digest(
+    artwork_rgb565: bytes,
+    artwork_width: int,
+    artwork_height: int,
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(BACKGROUND_CACHE_VERSION.encode("ascii"))
+    digest.update(b"\0")
+    digest.update(str(artwork_width).encode("ascii"))
+    digest.update(b"x")
+    digest.update(str(artwork_height).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(artwork_rgb565)
+    return digest.hexdigest()
+
+
+def _background_cache_path(digest: str) -> Path:
+    return BACKGROUND_CACHE_DIR / f"{digest}_{BACKGROUND_WIDTH}x{BACKGROUND_HEIGHT}.rgb565"
+
+
+def get_cached_blurred_background(
+    artwork_rgb565: bytes,
+    artwork_width: int,
+    artwork_height: int,
+) -> tuple[str, bytes | None]:
+    digest = background_digest(
+        artwork_rgb565,
+        artwork_width,
+        artwork_height,
+    )
+    path = _background_cache_path(digest)
+    expected_size = BACKGROUND_WIDTH * BACKGROUND_HEIGHT * 2
+
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return digest, None
+
+    if len(data) != expected_size:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        return digest, None
+
+    return digest, data
+
+
+def render_and_cache_blurred_background(
+    artwork_rgb565: bytes,
+    artwork_width: int,
+    artwork_height: int,
+) -> tuple[str, bytes]:
+    digest, cached = get_cached_blurred_background(
+        artwork_rgb565,
+        artwork_width,
+        artwork_height,
+    )
+    if cached is not None:
+        return digest, cached
+
+    background = render_blurred_background(
+        artwork_rgb565,
+        artwork_width,
+        artwork_height,
+    )
+    path = _background_cache_path(digest)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+
+    try:
+        temporary.write_bytes(background)
+        temporary.replace(path)
+    except OSError:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+
+    return digest, background
+
 
 
 def _rgb565_to_image(
