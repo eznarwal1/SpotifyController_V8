@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 import threading
 
-from protocol import make_state_message
 from serial_manager import SerialManager
 from spotify_controller import SpotifyController
 from ui_state import AppState, MediaState
@@ -18,6 +17,8 @@ from v8_renderer import WIDTH as VIEW_WIDTH, HEIGHT as VIEW_HEIGHT, render_view
 from v9.mixer_model import build_mixer_state
 from v9.queue_window import build_queue_window, find_preserved_selection
 from v9.command_router import process_display_command
+from v9.navigation_bridge import V8ViewNavigator
+from v9.state_sender import send_state_if_changed, reset_state_sender
 from background_renderer import (
     BACKGROUND_WIDTH,
     BACKGROUND_HEIGHT,
@@ -167,11 +168,10 @@ async def send_current_state(
 
     await update_state(spotify, volume, state)
 
-    if serial_manager.is_connected:
-        await asyncio.to_thread(
-            serial_manager.send_line,
-            make_state_message(state),
-        )
+    await send_state_if_changed(
+        serial_manager,
+        state,
+    )
 
 
 def update_native_queue_window(
@@ -239,36 +239,6 @@ def update_native_queue_window(
     return queue, window.global_selected_index
 
 
-def previous_v8_view(v8: V8Controller) -> str:
-    original = v8.state.view
-    visited = [original]
-
-    for _ in range(16):
-        next_view = v8.next_view()
-
-        if next_view == original:
-            if len(visited) <= 1:
-                return original
-
-            target = visited[-1]
-
-            # next_view() has wrapped us back to the original page. Walk
-            # forward again until we reach the page immediately before it.
-            for _ in range(16):
-                if v8.state.view == target:
-                    return target
-                v8.next_view()
-
-            return v8.state.view
-
-        if next_view in visited:
-            return v8.state.view
-
-        visited.append(next_view)
-
-    return v8.state.view
-
-
 async def polling_loop(
     spotify: SpotifyController,
     volume: VolumeController,
@@ -293,10 +263,12 @@ async def polling_loop(
                 last_connected = state.display_connected
 
             if serial_manager.is_connected:
-                await asyncio.to_thread(
-                    serial_manager.send_line,
-                    make_state_message(state),
+                await send_state_if_changed(
+                    serial_manager,
+                    state,
                 )
+            else:
+                reset_state_sender(serial_manager)
 
             display_state(state)
 
@@ -749,6 +721,7 @@ async def serial_command_loop(
     state: AppState,
     stop_event: asyncio.Event,
     v8: V8Controller,
+    view_navigator: V8ViewNavigator,
 ) -> None:
     while not stop_event.is_set():
         if not serial_manager.is_connected:
@@ -768,7 +741,7 @@ async def serial_command_loop(
                     serial_manager,
                     v8,
                     update_queue_window=update_native_queue_window,
-                    previous_view=previous_v8_view,
+                    view_navigator=view_navigator,
                     send_current_state=send_current_state,
                     queue_follow_state=_queue_follow_state,
                     log=log,
@@ -852,11 +825,12 @@ async def v8_view_loop(
     state: AppState,
     stop_event: asyncio.Event,
     v8: V8Controller,
+    view_navigator: V8ViewNavigator,
 ) -> None:
     last_render_key: tuple | None = None
 
     while not stop_event.is_set():
-        view = v8.state.view
+        view = view_navigator.current
         state.view_mode = view
         state.notification_text = ""
 
@@ -1001,9 +975,10 @@ async def main() -> None:
     spotify = SpotifyController()
     volume = VolumeController()
     v8 = V8Controller()
+    view_navigator = V8ViewNavigator.create(v8)
     serial_manager = SerialManager()
     state = AppState()
-    state.view_mode = v8.state.view
+    state.view_mode = view_navigator.current
     stop_event = asyncio.Event()
 
     await spotify.initialize()
@@ -1051,6 +1026,7 @@ async def main() -> None:
                 state,
                 stop_event,
                 v8,
+                view_navigator,
             ),
             v8_view_loop(
                 spotify,
@@ -1058,6 +1034,7 @@ async def main() -> None:
                 state,
                 stop_event,
                 v8,
+                view_navigator,
             ),
         )
     finally:

@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from typing import Any, Awaitable, Callable
 
-from protocol import make_state_message
 from serial_manager import SerialManager
 from spotify_controller import SpotifyController
 from ui_state import AppState
 from volume_controller import VolumeController
 from v8_controller import V8Controller
+from v9.navigation_bridge import V8ViewNavigator
+from v9.state_sender import send_state_if_changed
 
 
 QueueWindowUpdater = Callable[
     [SpotifyController, AppState, V8Controller],
     tuple[list[str], int],
 ]
-PreviousViewResolver = Callable[[V8Controller], str]
 LogFn = Callable[[str], None]
 
 
@@ -27,7 +27,7 @@ async def process_display_command(
     v8: V8Controller,
     *,
     update_queue_window: QueueWindowUpdater,
-    previous_view: PreviousViewResolver,
+    view_navigator: V8ViewNavigator,
     send_current_state: Callable[..., Awaitable[None]],
     queue_follow_state: Any,
     log: LogFn,
@@ -42,7 +42,7 @@ async def process_display_command(
     command = command.strip().lower()
 
     if command == "view_next":
-        selected_view = v8.next_view()
+        selected_view = view_navigator.next()
         state.view_mode = selected_view
         log(f"V8 view changed to: {selected_view}")
         await send_current_state(
@@ -54,7 +54,7 @@ async def process_display_command(
         return
 
     if command == "view_previous":
-        selected_view = previous_view(v8)
+        selected_view = view_navigator.previous()
         state.view_mode = selected_view
         log(f"V8 view changed backward to: {selected_view}")
         await send_current_state(
@@ -66,9 +66,9 @@ async def process_display_command(
         return
 
     if command == "view_now_playing":
-        v8.now_playing()
-        state.view_mode = "now_playing"
-        log("V8 view changed to: now_playing")
+        selected_view = view_navigator.home()
+        state.view_mode = selected_view
+        log(f"V8 view changed to: {selected_view}")
         await send_current_state(
             spotify,
             volume,
@@ -85,7 +85,7 @@ async def process_display_command(
             update_queue_window(spotify, state, v8)
 
             if serial_manager.is_connected:
-                await _send_state(serial_manager, state)
+                await send_state_if_changed(serial_manager, state)
 
             log("Queue selection returned to beginning.")
         return
@@ -107,7 +107,7 @@ async def process_display_command(
                 update_queue_window(spotify, state, v8)
 
                 if serial_manager.is_connected:
-                    await _send_state(serial_manager, state)
+                    await send_state_if_changed(serial_manager, state)
             return
 
         v8.move_selection(
@@ -174,7 +174,7 @@ async def process_display_command(
                     update_queue_window(spotify, state, v8)
 
                     if serial_manager.is_connected:
-                        await _send_state(serial_manager, state)
+                        await send_state_if_changed(serial_manager, state)
                 return
 
             v8.move_selection(-1 if command == "previous" else 1)
@@ -252,14 +252,3 @@ async def process_display_command(
             delay_seconds=delay,
         )
 
-
-async def _send_state(
-    serial_manager: SerialManager,
-    state: AppState,
-) -> None:
-    import asyncio
-
-    await asyncio.to_thread(
-        serial_manager.send_line,
-        make_state_message(state),
-    )
