@@ -24,7 +24,6 @@ struct AppState
     uint8_t batteryPercent = 0;
     bool batteryCharging = false;
     String viewMode = "now_playing";
-    String notificationText = "";
     static constexpr uint8_t MAX_QUEUE_ENTRIES = 8;
     String queueSource = "";
     String queueEntries[MAX_QUEUE_ENTRIES];

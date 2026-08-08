@@ -1453,8 +1453,7 @@ void SpotifyUI::applyState(const AppState& state)
 
     const bool pageChanged =
         firstState ||
-        previous.viewMode != state.viewMode ||
-        previous.notificationText != state.notificationText;
+        previous.viewMode != state.viewMode;
 
     const bool metadataChanged =
         firstState ||

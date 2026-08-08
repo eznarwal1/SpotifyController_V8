@@ -48,7 +48,6 @@ def make_state_message(state: AppState) -> str:
         "battery_percent": max(0, min(100, int(state.battery_percent))),
         "battery_charging": bool(state.battery_charging),
         "view_mode": getattr(state, "view_mode", "now_playing"),
-        "notification_text": getattr(state, "notification_text", ""),
         "queue_source": getattr(state, "queue_source", ""),
         "queue_entries": list(getattr(state, "queue_entries", []))[:8],
         "queue_selected_index": max(

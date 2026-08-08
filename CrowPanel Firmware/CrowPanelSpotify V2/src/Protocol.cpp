@@ -248,9 +248,6 @@ void Protocol::processJsonLine()
     state.viewMode = static_cast<const char*>(
         document["view_mode"] | "now_playing"
     );
-    state.notificationText = static_cast<const char*>(
-        document["notification_text"] | ""
-    );
     state.queueSource = static_cast<const char*>(
         document["queue_source"] | ""
     );
