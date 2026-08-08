@@ -6,8 +6,6 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 import threading
-import time
-from typing import Any
 
 from protocol import make_state_message
 from serial_manager import SerialManager
@@ -17,8 +15,9 @@ from volume_controller import VolumeController
 from system_status import get_battery_status
 from v8_controller import V8Controller
 from v8_renderer import WIDTH as VIEW_WIDTH, HEIGHT as VIEW_HEIGHT, render_view
-from v9.queue_protocol import build_queue_state
 from v9.mixer_model import build_mixer_state
+from v9.queue_window import build_queue_window, find_preserved_selection
+from v9.command_router import process_display_command
 from background_renderer import (
     BACKGROUND_WIDTH,
     BACKGROUND_HEIGHT,
@@ -60,63 +59,6 @@ class QueueFollowState:
 
 
 _queue_follow_state = QueueFollowState()
-
-
-@dataclass(slots=True)
-class TransientNotification:
-    text: str = ""
-    expires_at: float = 0.0
-
-
-class NotificationOverlay:
-    """Own the short-lived text shown by the native LVGL banner."""
-
-    def __init__(self) -> None:
-        self._current = TransientNotification()
-
-    def show(
-        self,
-        text: str,
-        duration_seconds: float = 3.0,
-    ) -> None:
-        text = " ".join(str(text or "").split()).strip()
-
-        if not text:
-            return
-
-        self._current = TransientNotification(
-            text=text[:180],
-            expires_at=time.monotonic() + max(
-                0.5,
-                float(duration_seconds),
-            ),
-        )
-        log(f"Notification: {self._current.text}")
-
-    def current_text(self) -> str:
-        if (
-            self._current.text
-            and time.monotonic() < self._current.expires_at
-        ):
-            return self._current.text
-
-        if self._current.text:
-            self._current = TransientNotification()
-
-        return ""
-
-
-_notification_overlay = NotificationOverlay()
-
-
-def show_notification(
-    text: str,
-    duration_seconds: float = 3.0,
-) -> None:
-    _notification_overlay.show(
-        text,
-        duration_seconds=duration_seconds,
-    )
 
 
 def log(message: str) -> None:
@@ -237,13 +179,7 @@ def update_native_queue_window(
     state: AppState,
     v8: V8Controller,
 ) -> tuple[list[str], int]:
-    """
-    Keep the complete Queue index on the PC and send only four rows.
-
-    When the user is at Home, Queue changes automatically follow Spotify's
-    new first upcoming track. If the user has browsed deeper into the Queue,
-    preserve the selected song across Spotify DOM refreshes whenever possible.
-    """
+    """Build the stable four-row Queue window using tested pure helpers."""
     queue = spotify._chrome_bridge.selected_or_playing_queue()
 
     (
@@ -252,14 +188,11 @@ def update_native_queue_window(
         _queue_status,
     ) = spotify._chrome_bridge.selected_queue_status()
 
-    total = len(queue)
-
-    if total == 0:
+    if not queue:
         v8.state.queue_index = 0
         state.queue_source = queue_source
         state.queue_entries = []
         state.queue_selected_index = 0
-
         _queue_follow_state.previous_queue = ()
         _queue_follow_state.selected_track = ""
         _queue_follow_state.manual_navigation = False
@@ -273,49 +206,37 @@ def update_native_queue_window(
 
     if queue_changed:
         if not _queue_follow_state.manual_navigation:
-            # Home/follow mode always tracks Spotify's first upcoming item.
             v8.state.queue_index = 0
         elif _queue_follow_state.selected_track:
-            # Preserve the browsed-to song if Spotify shifted the Queue because
-            # playback advanced or the DOM was rebuilt.
-            matching = [
-                index
-                for index, item in enumerate(queue)
-                if item == _queue_follow_state.selected_track
-            ]
-            if matching:
-                old_index = v8.state.queue_index
-                v8.state.queue_index = min(
-                    matching,
-                    key=lambda index: abs(index - old_index),
-                )
+            v8.state.queue_index = find_preserved_selection(
+                _queue_follow_state.selected_track,
+                v8.state.queue_index,
+                queue,
+            )
 
-    selected = max(
-        0,
-        min(v8.state.queue_index, total - 1),
-    )
-    v8.state.queue_index = selected
-
-    start = max(
-        0,
-        min(
-            selected - 1,
-            max(0, total - 4),
-        ),
+    window = build_queue_window(
+        queue,
+        v8.state.queue_index,
+        visible_rows=4,
+        preferred_rows_above=1,
     )
 
-    state.queue_entries = queue[start:start + 4]
-    state.queue_selected_index = selected - start
+    v8.state.queue_index = window.global_selected_index
+    state.queue_entries = list(window.rows)
+    state.queue_selected_index = window.local_selected_index
     state.queue_source = (
-        f"{queue_source}  {selected + 1}/{total}"
+        f"{queue_source}  "
+        f"{window.global_selected_index + 1}/{window.total}"
         if queue_source
-        else f"{selected + 1}/{total}"
+        else f"{window.global_selected_index + 1}/{window.total}"
     )
 
     _queue_follow_state.previous_queue = queue_tuple
-    _queue_follow_state.selected_track = queue[selected]
+    _queue_follow_state.selected_track = queue[
+        window.global_selected_index
+    ]
 
-    return queue, selected
+    return queue, window.global_selected_index
 
 
 def previous_v8_view(v8: V8Controller) -> str:
@@ -348,268 +269,6 @@ def previous_v8_view(v8: V8Controller) -> str:
     return v8.state.view
 
 
-async def process_display_command(
-    message: dict[str, Any] | None,
-    spotify: SpotifyController,
-    volume: VolumeController,
-    state: AppState,
-    serial_manager: SerialManager,
-    v8: V8Controller,
-) -> None:
-    if not isinstance(message, dict):
-        return
-
-    command = message.get("command")
-    if not isinstance(command, str):
-        return
-
-    command = command.strip().lower()
-
-    if command == "view_next":
-        selected_view = v8.next_view()
-        state.view_mode = selected_view
-        show_notification(
-            f"View: {selected_view.replace('_', ' ').title()}"
-        )
-        log(f"V8 view changed to: {selected_view}")
-        await send_current_state(
-            spotify,
-            volume,
-            state,
-            serial_manager,
-        )
-        return
-
-    if command == "view_previous":
-        selected_view = previous_v8_view(v8)
-        state.view_mode = selected_view
-        log(f"V8 view changed backward to: {selected_view}")
-        await send_current_state(
-            spotify,
-            volume,
-            state,
-            serial_manager,
-        )
-        return
-
-    if command == "view_now_playing":
-        v8.now_playing()
-        state.view_mode = "now_playing"
-        show_notification("View: Now Playing")
-        log("V8 view changed to: now_playing")
-        await send_current_state(
-            spotify,
-            volume,
-            state,
-            serial_manager,
-        )
-        return
-
-    if command == "queue_home":
-        if v8.state.view == "queue":
-            v8.state.queue_index = 0
-            _queue_follow_state.manual_navigation = False
-            _queue_follow_state.selected_track = ""
-            update_native_queue_window(spotify, state, v8)
-
-            if serial_manager.is_connected:
-                await asyncio.to_thread(
-                    serial_manager.send_line,
-                    make_state_message(state),
-                )
-
-            show_notification("Queue: Back to beginning")
-            log("Queue selection returned to beginning.")
-        return
-
-    if command in ("utility_previous", "utility_next"):
-        if v8.state.view == "queue":
-            queue = spotify._chrome_bridge.selected_or_playing_queue()
-
-            if queue:
-                direction = -1 if command == "utility_previous" else 1
-                _queue_follow_state.manual_navigation = True
-                v8.state.queue_index = max(
-                    0,
-                    min(
-                        v8.state.queue_index + direction,
-                        len(queue) - 1,
-                    ),
-                )
-                update_native_queue_window(spotify, state, v8)
-
-                if serial_manager.is_connected:
-                    await asyncio.to_thread(
-                        serial_manager.send_line,
-                        make_state_message(state),
-                    )
-            return
-
-        v8.move_selection(
-            -1 if command == "utility_previous" else 1
-        )
-        return
-
-    if command == "utility_select":
-        if v8.state.view == "queue":
-            queue = spotify._chrome_bridge.selected_or_playing_queue()
-
-            if queue:
-                queue_index = max(
-                    0,
-                    min(v8.state.queue_index, len(queue) - 1),
-                )
-                success = spotify._chrome_bridge.activate_queue_item(
-                    queue_index
-                )
-
-                if success:
-                    _queue_follow_state.manual_navigation = False
-                    _queue_follow_state.selected_track = ""
-                    selected_name = (
-                        queue[queue_index]
-                        if 0 <= queue_index < len(queue)
-                        else "Selected track"
-                    )
-                    show_notification(
-                        f"Queue selected: {selected_name}",
-                        duration_seconds=3.5,
-                    )
-                else:
-                    show_notification(
-                        "Queue selection unavailable"
-                    )
-
-                log(
-                    "Queue selection "
-                    f"{queue_index}: "
-                    f"{'sent' if success else 'unavailable'}"
-                )
-            return
-
-        result = v8.activate()
-        log(f"V8 action: {result}")
-        return
-
-    if command == "mixer_volume_down":
-        v8.change_volume(-5)
-        return
-
-    if command == "mixer_volume_up":
-        v8.change_volume(5)
-        return
-
-    if command == "mixer_mute":
-        if v8.state.view == "mixer":
-            v8.activate()
-        return
-
-    if v8.state.view != "now_playing":
-        if command in ("previous", "next"):
-            if v8.state.view == "queue":
-                queue = spotify._chrome_bridge.selected_or_playing_queue()
-
-                if queue:
-                    direction = -1 if command == "previous" else 1
-                    _queue_follow_state.manual_navigation = True
-                    v8.state.queue_index = max(
-                        0,
-                        min(
-                            v8.state.queue_index + direction,
-                            len(queue) - 1,
-                        ),
-                    )
-                    update_native_queue_window(spotify, state, v8)
-
-                    if serial_manager.is_connected:
-                        await asyncio.to_thread(
-                            serial_manager.send_line,
-                            make_state_message(state),
-                        )
-                return
-
-            v8.move_selection(-1 if command == "previous" else 1)
-            return
-
-        if command == "play_pause":
-            result = v8.activate()
-            log(f"V8 action: {result}")
-            return
-
-        if command == "volume":
-            amount = message.get("amount")
-            if isinstance(amount, bool) or not isinstance(
-                amount,
-                (int, float),
-            ):
-                return
-
-            if v8.change_volume(
-                max(-10, min(10, int(amount)))
-            ):
-                return
-
-    if command == "play_pause":
-        success = await spotify.toggle_play_pause()
-        delay = 0.0
-    elif command == "previous":
-        success = await spotify.previous_track()
-        delay = 0.25
-    elif command == "next":
-        success = await spotify.next_track()
-        delay = 0.25
-    elif command == "repeat":
-        success = await spotify.cycle_repeat_mode()
-        delay = 0.05
-    elif command == "source":
-        selected_source = await spotify.cycle_media_source()
-        show_notification(f"Source: {selected_source}")
-        log(f"Selected media source: {selected_source}")
-        success = True
-        delay = 0.05
-    elif command == "source_auto":
-        spotify.use_automatic_source_selection()
-        show_notification("Source: Auto")
-        log("Selected media source: Auto")
-        success = True
-        delay = 0.05
-    elif command == "discord_mute":
-        success = spotify.toggle_discord_mute()
-        if success:
-            show_notification("Discord microphone toggled")
-        delay = 0.15
-    elif command == "discord_deafen":
-        success = spotify.toggle_discord_deafen()
-        if success:
-            show_notification("Discord deafen toggled")
-        delay = 0.15
-    elif command == "volume":
-        amount = message.get("amount")
-        if isinstance(amount, bool) or not isinstance(
-            amount,
-            (int, float),
-        ):
-            return
-        volume.change_volume(max(-10, min(10, int(amount))))
-        success = True
-        delay = 0.05
-    elif command == "mute":
-        volume.toggle_mute()
-        success = True
-        delay = 0.05
-    else:
-        return
-
-    if success:
-        await send_current_state(
-            spotify,
-            volume,
-            state,
-            serial_manager,
-            delay_seconds=delay,
-        )
-
-
 async def polling_loop(
     spotify: SpotifyController,
     volume: VolumeController,
@@ -618,9 +277,6 @@ async def polling_loop(
     stop_event: asyncio.Event,
 ) -> None:
     last_connected: bool | None = None
-    last_media_connected: bool | None = None
-    last_discord_call: bool | None = None
-    low_battery_latched = False
 
     while not stop_event.is_set():
         try:
@@ -634,60 +290,8 @@ async def polling_loop(
                     f"connected={state.display_connected}, "
                     f"port={state.display_port!r}"
                 )
-
-                if (
-                    state.display_connected
-                    and last_connected is False
-                ):
-                    show_notification("Display reconnected")
-
                 last_connected = state.display_connected
 
-            if (
-                last_media_connected is not None
-                and state.spotify_connected != last_media_connected
-            ):
-                show_notification(
-                    "Media connected"
-                    if state.spotify_connected
-                    else "Media disconnected"
-                )
-
-            last_media_connected = state.spotify_connected
-
-            if (
-                last_discord_call is not None
-                and state.discord_call_active != last_discord_call
-            ):
-                show_notification(
-                    "Discord call connected"
-                    if state.discord_call_active
-                    else "Discord call disconnected"
-                )
-
-            last_discord_call = state.discord_call_active
-
-            low_battery_now = (
-                state.battery_present
-                and not state.battery_charging
-                and state.battery_percent <= 20
-            )
-
-            if low_battery_now and not low_battery_latched:
-                show_notification(
-                    f"Low battery: {state.battery_percent}%",
-                    duration_seconds=4.0,
-                )
-                low_battery_latched = True
-            elif (
-                not low_battery_now
-                or state.battery_percent >= 25
-                or state.battery_charging
-            ):
-                low_battery_latched = False
-
-            # Metadata is sent independently of artwork retrieval.
-            # A slow network lookup can no longer delay title/artist/progress.
             if serial_manager.is_connected:
                 await asyncio.to_thread(
                     serial_manager.send_line,
@@ -1163,6 +767,11 @@ async def serial_command_loop(
                     state,
                     serial_manager,
                     v8,
+                    update_queue_window=update_native_queue_window,
+                    previous_view=previous_v8_view,
+                    send_current_state=send_current_state,
+                    queue_follow_state=_queue_follow_state,
+                    log=log,
                 )
         except Exception as exc:
             log(
