@@ -12,10 +12,41 @@
     "url": "https://github.com/lovyan03/LovyanGFX.git"
   },
   "version": "1.1.16",
-  "frameworks": ["arduino", "espidf", "*"],
-  "platforms": ["espressif32", "espressif8266", "atmelsam", "native"],
+  "frameworks": [
+    "arduino",
+    "espidf",
+    "*"
+  ],
+  "platforms": [
+    "espressif32",
+    "espressif8266",
+    "atmelsam",
+    "native"
+  ],
   "headers": "LovyanGFX.hpp",
   "build": {
-    "libArchive": false
+    "libArchive": false,
+    "srcFilter": [
+      "+<*>",
+      "-<lgfx/v1/platforms/arduino_default/>",
+      "-<lgfx/v1/platforms/esp8266/>",
+      "-<lgfx/v1/platforms/framebuffer/>",
+      "-<lgfx/v1/platforms/opencv/>",
+      "-<lgfx/v1/platforms/rp2040/>",
+      "-<lgfx/v1/platforms/samd21/>",
+      "-<lgfx/v1/platforms/samd51/>",
+      "-<lgfx/v1/platforms/sdl/>",
+      "-<lgfx/v1/platforms/spresense/>",
+      "-<lgfx/v1/platforms/stm32/>",
+      "-<lgfx/v1/platforms/esp32c3/>",
+      "-<lgfx/v1/platforms/esp32s2/>",
+      "-<lgfx/v1/touch/Touch_CST816S.cpp>",
+      "-<lgfx/v1/touch/Touch_FT5x06.cpp>",
+      "-<lgfx/v1/touch/Touch_GSLx680.cpp>",
+      "-<lgfx/v1/touch/Touch_NS2009.cpp>",
+      "-<lgfx/v1/touch/Touch_STMPE610.cpp>",
+      "-<lgfx/v1/touch/Touch_TT21xxx.cpp>",
+      "-<lgfx/v1/touch/Touch_XPT2046.cpp>"
+    ]
   }
 }
