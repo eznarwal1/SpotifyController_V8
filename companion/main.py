@@ -1,55 +1,27 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
-import hashlib
 from datetime import datetime
 from pathlib import Path
 import threading
 
 from serial_manager import SerialManager
 from spotify_controller import SpotifyController
-from ui_state import AppState, MediaState
+from ui_state import AppState
 from volume_controller import VolumeController
-from system_status import get_battery_status
 from v8_controller import V8Controller
 from v8_renderer import WIDTH as VIEW_WIDTH, HEIGHT as VIEW_HEIGHT, render_view
 from v9.mixer_model import build_mixer_state
 from v9.command_router import process_display_command
 from v9.navigation_bridge import V8ViewNavigator
 from v9.queue_controller import QueueController
+from v9.runtime_state import polling_loop, send_current_state
+from v9.media_tasks import artwork_loop, metadata_image_loop, source_image_loop
 from v9.state_sender import send_state_if_changed, reset_state_sender
-from background_renderer import (
-    BACKGROUND_WIDTH,
-    BACKGROUND_HEIGHT,
-    render_and_cache_blurred_background,
-)
-from metadata_renderer import (
-    MetadataPanel,
-    PANEL_WIDTH,
-    PANEL_HEIGHT,
-    SOURCE_WIDTH,
-    SOURCE_HEIGHT,
-    render_metadata_panel,
-    render_source_button,
-    set_ui_background,
-    ui_background_revision,
-)
 
 
-ARTWORK_WIDTH = 210
-ARTWORK_HEIGHT = 210
-ARTWORK_RETRY_SECONDS = 15.0
-ARTWORK_METADATA_DELAY_SECONDS = 0.12
-ARTWORK_LOOP_INTERVAL_SECONDS = 0.05
 DEBUG_LOG = Path(__file__).with_name("debug.log")
 _log_lock = threading.Lock()
-
-
-@dataclass(slots=True)
-class ArtworkTransferState:
-    artwork_digest: str = ""
-    background_digest: str = ""
 
 
 def log(message: str) -> None:
@@ -115,528 +87,6 @@ def display_state(state: AppState) -> None:
         )
     )
     print("Commands: p, b, n, r, s, a, +, -, m, q")
-
-
-async def update_state(
-    spotify: SpotifyController,
-    volume: VolumeController,
-    state: AppState,
-) -> None:
-    media = await spotify.get_state()
-
-    if media is None:
-        state.spotify_connected = False
-        state.media = MediaState()
-    else:
-        state.spotify_connected = True
-        state.media = media
-
-    state.volume = volume.get_volume()
-    state.muted = volume.is_muted()
-
-    (
-        state.discord_call_active,
-        state.discord_muted,
-        state.discord_deafened,
-    ) = spotify.get_discord_status()
-
-    battery = get_battery_status()
-    state.battery_present = battery.present
-    state.battery_percent = battery.percent
-    state.battery_charging = battery.charging
-
-
-async def send_current_state(
-    spotify: SpotifyController,
-    volume: VolumeController,
-    state: AppState,
-    serial_manager: SerialManager,
-    delay_seconds: float = 0.0,
-) -> None:
-    if delay_seconds:
-        await asyncio.sleep(delay_seconds)
-
-    await update_state(spotify, volume, state)
-
-    await send_state_if_changed(
-        serial_manager,
-        state,
-    )
-
-
-async def polling_loop(
-    spotify: SpotifyController,
-    volume: VolumeController,
-    serial_manager: SerialManager,
-    state: AppState,
-    stop_event: asyncio.Event,
-) -> None:
-    last_connected: bool | None = None
-
-    while not stop_event.is_set():
-        try:
-            await update_state(spotify, volume, state)
-            state.display_connected = serial_manager.is_connected
-            state.display_port = serial_manager.port_name or ""
-
-            if state.display_connected != last_connected:
-                log(
-                    "Display connection changed: "
-                    f"connected={state.display_connected}, "
-                    f"port={state.display_port!r}"
-                )
-                last_connected = state.display_connected
-
-            if serial_manager.is_connected:
-                await send_state_if_changed(
-                    serial_manager,
-                    state,
-                )
-            else:
-                reset_state_sender(serial_manager)
-
-            display_state(state)
-
-        except Exception as exc:
-            log(f"Polling loop error: {type(exc).__name__}: {exc}")
-
-        await asyncio.sleep(1.0)
-
-
-def current_track_key(
-    state: AppState,
-) -> tuple[str, str, str] | None:
-    if not state.spotify_connected:
-        return None
-
-    title = state.media.title.strip()
-    artist = state.media.artist.strip()
-    album = state.media.album.strip()
-
-    if not title and not artist:
-        return None
-
-    return title, artist, album
-
-
-async def prepare_and_send_artwork(
-    track_key: tuple[str, str, str],
-    spotify: SpotifyController,
-    serial_manager: SerialManager,
-    state: AppState,
-    transfer_state: ArtworkTransferState,
-) -> bool:
-    """
-    Prepare the newest track's genuine artwork without disturbing the
-    currently displayed image while lookup is in progress.
-
-    The track identity is checked before every serial transfer. If playback
-    changes during a slow lookup, this worker exits without sending stale
-    background data. Identical album art is not retransmitted.
-    """
-    loop = asyncio.get_running_loop()
-
-    try:
-        cache_started = loop.time()
-        artwork = await spotify.get_cached_album_art_rgb565_for_track(
-            track_key[0],
-            track_key[1],
-            track_key[2],
-            ARTWORK_WIDTH,
-            ARTWORK_HEIGHT,
-        )
-        cache_elapsed = loop.time() - cache_started
-
-        if artwork is not None:
-            log(
-                f"Artwork cache ready in {cache_elapsed:.3f}s for "
-                f"{track_key!r}"
-            )
-        else:
-            # Let browser/WinRT metadata settle before an expensive lookup.
-            await asyncio.sleep(ARTWORK_METADATA_DELAY_SECONDS)
-
-            if current_track_key(state) != track_key:
-                log(
-                    "Artwork lookup cancelled before network request because "
-                    f"the track changed: {track_key!r}"
-                )
-                return False
-
-            lookup_started = loop.time()
-            artwork = await spotify.get_album_art_rgb565_for_track(
-                track_key[0],
-                track_key[1],
-                track_key[2],
-                ARTWORK_WIDTH,
-                ARTWORK_HEIGHT,
-            )
-            lookup_elapsed = loop.time() - lookup_started
-            log(
-                "Artwork network preparation finished in "
-                f"{lookup_elapsed:.3f}s for {track_key!r}"
-            )
-
-    except asyncio.CancelledError:
-        log(f"Artwork worker cancelled for stale track {track_key!r}")
-        raise
-    except Exception as exc:
-        log(
-            "Artwork retrieval failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
-        return False
-
-    # No genuine art was found. Keep the existing art/background on-screen.
-    if artwork is None:
-        log(
-            "No genuine artwork found; preserving the currently displayed "
-            f"artwork for {track_key!r}"
-        )
-        return False
-
-    if current_track_key(state) != track_key:
-        log(
-            "Discarding stale artwork because the track changed: "
-            f"{track_key!r}"
-        )
-        return False
-
-    if not serial_manager.is_connected:
-        return False
-
-    artwork_digest = hashlib.sha256(artwork).hexdigest()
-
-    # Songs from the same album usually share the exact same artwork.
-    if artwork_digest == transfer_state.artwork_digest:
-        log(
-            "Artwork is identical to the displayed album art; "
-            f"skipping serial retransmission for {track_key!r}"
-        )
-        return True
-
-    try:
-        background_digest, background = await asyncio.to_thread(
-            render_and_cache_blurred_background,
-            artwork,
-            ARTWORK_WIDTH,
-            ARTWORK_HEIGHT,
-        )
-
-        # Re-check immediately before the large artwork transfer.
-        if current_track_key(state) != track_key:
-            log(
-                "Artwork became stale before serial transfer; "
-                f"discarding {track_key!r}"
-            )
-            return False
-
-        send_started = loop.time()
-        artwork_sent = await asyncio.to_thread(
-            serial_manager.send_artwork,
-            artwork,
-            ARTWORK_WIDTH,
-            ARTWORK_HEIGHT,
-        )
-
-        if not artwork_sent:
-            return False
-
-        transfer_state.artwork_digest = artwork_digest
-
-        # The track can change while the 88 KB artwork packet is in flight.
-        # In that case, do not follow it with an obsolete 800x480 background.
-        if current_track_key(state) != track_key:
-            log(
-                "Track changed during artwork transfer; suppressing stale "
-                f"background for {track_key!r}"
-            )
-            return False
-
-        if background_digest != transfer_state.background_digest:
-            background_sent = await asyncio.to_thread(
-                serial_manager.send_background_image,
-                background,
-                BACKGROUND_WIDTH,
-                BACKGROUND_HEIGHT,
-            )
-
-            if background_sent:
-                transfer_state.background_digest = background_digest
-
-                # Only update the PC-rendered metadata/source compositor after
-                # the same background was accepted by the display.
-                await asyncio.to_thread(
-                    set_ui_background,
-                    background,
-                    BACKGROUND_WIDTH,
-                    BACKGROUND_HEIGHT,
-                )
-            else:
-                log(
-                    "Background packet was not sent; keeping the previous "
-                    "metadata/source compositor background"
-                )
-        else:
-            log("Blurred background unchanged; skipping retransmission.")
-
-        send_elapsed = loop.time() - send_started
-        log(
-            "Artwork/background transaction completed in "
-            f"{send_elapsed:.3f}s for {track_key!r}"
-        )
-        return True
-
-    except asyncio.CancelledError:
-        log(f"Artwork transfer cancelled for stale track {track_key!r}")
-        raise
-    except Exception as exc:
-        log(
-            "Artwork/background send failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
-        return False
-
-
-def current_metadata_key(
-    state: AppState,
-) -> tuple[str, str, str, str] | None:
-    if not state.spotify_connected:
-        return None
-
-    return (
-        state.media.title.strip(),
-        state.media.artist.strip(),
-        state.media.album.strip(),
-        state.media.application.strip(),
-    )
-
-
-async def source_image_loop(
-    serial_manager: SerialManager,
-    state: AppState,
-    stop_event: asyncio.Event,
-) -> None:
-    """Render the source selector label on Windows and send it as pixels."""
-    last_source_key: tuple[str, int] | None = None
-    was_connected = False
-
-    while not stop_event.is_set():
-        connected = serial_manager.is_connected
-
-        if state.spotify_connected:
-            source = state.media.application.strip() or "Auto"
-        else:
-            source = "Auto"
-
-        source_key = (
-            source,
-            ui_background_revision(),
-        )
-
-        if connected and (
-            not was_connected or source_key != last_source_key
-        ):
-            try:
-                rgb565 = await asyncio.to_thread(
-                    render_source_button,
-                    source,
-                )
-                sent = await asyncio.to_thread(
-                    serial_manager.send_source_image,
-                    rgb565,
-                    SOURCE_WIDTH,
-                    SOURCE_HEIGHT,
-                )
-
-                if sent:
-                    last_source_key = source_key
-                    log(f"Source image sent for {source!r}")
-            except Exception as exc:
-                log(
-                    "Source image failed: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-
-        if not connected:
-            last_source_key = None
-
-        was_connected = connected
-        await asyncio.sleep(0.10)
-
-
-async def metadata_image_loop(
-    serial_manager: SerialManager,
-    state: AppState,
-    stop_event: asyncio.Event,
-) -> None:
-    """Render multilingual metadata on Windows and send it as RGB565 pixels."""
-    last_key: tuple[str, str, str, str, int] | None = None
-    was_connected = False
-
-    while not stop_event.is_set():
-        connected = serial_manager.is_connected
-        metadata = current_metadata_key(state)
-        key = (
-            None
-            if metadata is None
-            else (
-                metadata[0],
-                metadata[1],
-                metadata[2],
-                metadata[3],
-                ui_background_revision(),
-            )
-        )
-
-        if connected and key is not None and (
-            not was_connected or key != last_key
-        ):
-            panel = MetadataPanel(
-                title=key[0],
-                artist=key[1],
-                album=key[2],
-                source=key[3],
-            )
-
-            try:
-                rgb565 = await asyncio.to_thread(
-                    render_metadata_panel,
-                    panel,
-                )
-                sent = await asyncio.to_thread(
-                    serial_manager.send_metadata_image,
-                    rgb565,
-                    PANEL_WIDTH,
-                    PANEL_HEIGHT,
-                )
-                if sent:
-                    last_key = key
-                    log(f"Metadata image sent for {key!r}")
-            except Exception as exc:
-                log(
-                    "Metadata image failed: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-
-        if not connected:
-            last_key = None
-
-        was_connected = connected
-        await asyncio.sleep(0.10)
-
-
-async def artwork_loop(
-    spotify: SpotifyController,
-    serial_manager: SerialManager,
-    state: AppState,
-    stop_event: asyncio.Event,
-) -> None:
-    """
-    Run artwork retrieval as a latest-track background job.
-
-    Only the newest track is allowed to complete. When playback changes, the
-    previous coroutine is cancelled immediately; any blocking network thread
-    may finish in the background, but it can no longer send stale packets.
-    """
-    last_sent_key: tuple[str, str, str] | None = None
-    last_attempted_key: tuple[str, str, str] | None = None
-    last_attempt_time = 0.0
-    active_key: tuple[str, str, str] | None = None
-    active_task: asyncio.Task[bool] | None = None
-    was_connected = False
-    transfer_state = ArtworkTransferState()
-
-    log("V9.08 artwork stability loop started.")
-
-    while not stop_event.is_set():
-        connected = serial_manager.is_connected
-        track_key = current_track_key(state)
-        now = asyncio.get_running_loop().time()
-
-        # A new song wins immediately. Do not wait for an obsolete lookup.
-        if (
-            active_task is not None
-            and not active_task.done()
-            and active_key is not None
-            and track_key != active_key
-        ):
-            log(
-                "Cancelling stale artwork worker: "
-                f"{active_key!r} -> {track_key!r}"
-            )
-            active_task.cancel()
-            active_task = None
-            active_key = None
-
-        if active_task is not None and active_task.done():
-            try:
-                sent = active_task.result()
-            except asyncio.CancelledError:
-                sent = False
-            except Exception as exc:
-                log(
-                    "Unexpected artwork worker failure: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-                sent = False
-
-            if sent and active_key is not None:
-                last_sent_key = active_key
-
-            active_task = None
-            active_key = None
-
-        if not connected:
-            was_connected = False
-            last_sent_key = None
-            transfer_state.artwork_digest = ""
-            transfer_state.background_digest = ""
-
-            if active_task is not None:
-                active_task.cancel()
-                active_task = None
-                active_key = None
-
-            await asyncio.sleep(0.20)
-            continue
-
-        connection_changed = connected and not was_connected
-
-        retry_allowed = (
-            track_key != last_attempted_key
-            or now - last_attempt_time >= ARTWORK_RETRY_SECONDS
-        )
-
-        needs_artwork = (
-            track_key is not None
-            and (connection_changed or track_key != last_sent_key)
-            and retry_allowed
-        )
-
-        if needs_artwork and active_task is None:
-            last_attempted_key = track_key
-            last_attempt_time = now
-            active_key = track_key
-            active_task = asyncio.create_task(
-                prepare_and_send_artwork(
-                    track_key,
-                    spotify,
-                    serial_manager,
-                    state,
-                    transfer_state,
-                )
-            )
-
-        was_connected = connected
-        await asyncio.sleep(ARTWORK_LOOP_INTERVAL_SECONDS)
-
-    if active_task is not None:
-        active_task.cancel()
-        try:
-            await active_task
-        except asyncio.CancelledError:
-            pass
 
 
 async def serial_command_loop(
@@ -922,22 +372,27 @@ async def main() -> None:
                 serial_manager,
                 state,
                 stop_event,
+                log=log,
+                display_state=display_state,
             ),
             artwork_loop(
                 spotify,
                 serial_manager,
                 state,
                 stop_event,
+                log=log,
             ),
             metadata_image_loop(
                 serial_manager,
                 state,
                 stop_event,
+                log=log,
             ),
             source_image_loop(
                 serial_manager,
                 state,
                 stop_event,
+                log=log,
             ),
             command_loop(
                 spotify,
