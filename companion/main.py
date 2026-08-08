@@ -15,9 +15,9 @@ from system_status import get_battery_status
 from v8_controller import V8Controller
 from v8_renderer import WIDTH as VIEW_WIDTH, HEIGHT as VIEW_HEIGHT, render_view
 from v9.mixer_model import build_mixer_state
-from v9.queue_window import build_queue_window, find_preserved_selection
 from v9.command_router import process_display_command
 from v9.navigation_bridge import V8ViewNavigator
+from v9.queue_controller import QueueController
 from v9.state_sender import send_state_if_changed, reset_state_sender
 from background_renderer import (
     BACKGROUND_WIDTH,
@@ -50,16 +50,6 @@ _log_lock = threading.Lock()
 class ArtworkTransferState:
     artwork_digest: str = ""
     background_digest: str = ""
-
-
-@dataclass(slots=True)
-class QueueFollowState:
-    previous_queue: tuple[str, ...] = ()
-    selected_track: str = ""
-    manual_navigation: bool = False
-
-
-_queue_follow_state = QueueFollowState()
 
 
 def log(message: str) -> None:
@@ -172,71 +162,6 @@ async def send_current_state(
         serial_manager,
         state,
     )
-
-
-def update_native_queue_window(
-    spotify: SpotifyController,
-    state: AppState,
-    v8: V8Controller,
-) -> tuple[list[str], int]:
-    """Build the stable four-row Queue window using tested pure helpers."""
-    queue = spotify._chrome_bridge.selected_or_playing_queue()
-
-    (
-        queue_source,
-        _queue_available,
-        _queue_status,
-    ) = spotify._chrome_bridge.selected_queue_status()
-
-    if not queue:
-        v8.state.queue_index = 0
-        state.queue_source = queue_source
-        state.queue_entries = []
-        state.queue_selected_index = 0
-        _queue_follow_state.previous_queue = ()
-        _queue_follow_state.selected_track = ""
-        _queue_follow_state.manual_navigation = False
-        return queue, 0
-
-    queue_tuple = tuple(queue)
-    queue_changed = (
-        bool(_queue_follow_state.previous_queue)
-        and queue_tuple != _queue_follow_state.previous_queue
-    )
-
-    if queue_changed:
-        if not _queue_follow_state.manual_navigation:
-            v8.state.queue_index = 0
-        elif _queue_follow_state.selected_track:
-            v8.state.queue_index = find_preserved_selection(
-                _queue_follow_state.selected_track,
-                v8.state.queue_index,
-                queue,
-            )
-
-    window = build_queue_window(
-        queue,
-        v8.state.queue_index,
-        visible_rows=4,
-        preferred_rows_above=1,
-    )
-
-    v8.state.queue_index = window.global_selected_index
-    state.queue_entries = list(window.rows)
-    state.queue_selected_index = window.local_selected_index
-    state.queue_source = (
-        f"{queue_source}  "
-        f"{window.global_selected_index + 1}/{window.total}"
-        if queue_source
-        else f"{window.global_selected_index + 1}/{window.total}"
-    )
-
-    _queue_follow_state.previous_queue = queue_tuple
-    _queue_follow_state.selected_track = queue[
-        window.global_selected_index
-    ]
-
-    return queue, window.global_selected_index
 
 
 async def polling_loop(
@@ -722,6 +647,7 @@ async def serial_command_loop(
     stop_event: asyncio.Event,
     v8: V8Controller,
     view_navigator: V8ViewNavigator,
+    queue_controller: QueueController,
 ) -> None:
     while not stop_event.is_set():
         if not serial_manager.is_connected:
@@ -740,10 +666,9 @@ async def serial_command_loop(
                     state,
                     serial_manager,
                     v8,
-                    update_queue_window=update_native_queue_window,
                     view_navigator=view_navigator,
                     send_current_state=send_current_state,
-                    queue_follow_state=_queue_follow_state,
+                    queue_controller=queue_controller,
                     log=log,
                 )
         except Exception as exc:
@@ -826,6 +751,7 @@ async def v8_view_loop(
     stop_event: asyncio.Event,
     v8: V8Controller,
     view_navigator: V8ViewNavigator,
+    queue_controller: QueueController,
 ) -> None:
     last_render_key: tuple | None = None
 
@@ -846,11 +772,7 @@ async def v8_view_loop(
             await asyncio.sleep(0.25)
             continue
 
-        queue, _queue_selected = update_native_queue_window(
-            spotify,
-            state,
-            v8,
-        )
+        queue, _queue_selected = queue_controller.refresh_window()
         (
             queue_source,
             queue_available,
@@ -978,6 +900,11 @@ async def main() -> None:
     view_navigator = V8ViewNavigator.create(v8)
     serial_manager = SerialManager()
     state = AppState()
+    queue_controller = QueueController(
+        spotify,
+        state,
+        v8,
+    )
     state.view_mode = view_navigator.current
     stop_event = asyncio.Event()
 
@@ -1027,6 +954,7 @@ async def main() -> None:
                 stop_event,
                 v8,
                 view_navigator,
+                queue_controller,
             ),
             v8_view_loop(
                 spotify,
@@ -1035,6 +963,7 @@ async def main() -> None:
                 stop_event,
                 v8,
                 view_navigator,
+                queue_controller,
             ),
         )
     finally:

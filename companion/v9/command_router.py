@@ -8,13 +8,10 @@ from ui_state import AppState
 from volume_controller import VolumeController
 from v8_controller import V8Controller
 from v9.navigation_bridge import V8ViewNavigator
+from v9.queue_controller import QueueController
 from v9.state_sender import send_state_if_changed
 
 
-QueueWindowUpdater = Callable[
-    [SpotifyController, AppState, V8Controller],
-    tuple[list[str], int],
-]
 LogFn = Callable[[str], None]
 
 
@@ -26,10 +23,9 @@ async def process_display_command(
     serial_manager: SerialManager,
     v8: V8Controller,
     *,
-    update_queue_window: QueueWindowUpdater,
     view_navigator: V8ViewNavigator,
     send_current_state: Callable[..., Awaitable[None]],
-    queue_follow_state: Any,
+    queue_controller: QueueController,
     log: LogFn,
 ) -> None:
     if not isinstance(message, dict):
@@ -79,10 +75,7 @@ async def process_display_command(
 
     if command == "queue_home":
         if v8.state.view == "queue":
-            v8.state.queue_index = 0
-            queue_follow_state.manual_navigation = False
-            queue_follow_state.selected_track = ""
-            update_queue_window(spotify, state, v8)
+            queue_controller.home()
 
             if serial_manager.is_connected:
                 await send_state_if_changed(serial_manager, state)
@@ -92,22 +85,11 @@ async def process_display_command(
 
     if command in ("utility_previous", "utility_next"):
         if v8.state.view == "queue":
-            queue = spotify._chrome_bridge.selected_or_playing_queue()
+            direction = -1 if command == "utility_previous" else 1
+            changed = queue_controller.move(direction)
 
-            if queue:
-                direction = -1 if command == "utility_previous" else 1
-                queue_follow_state.manual_navigation = True
-                v8.state.queue_index = max(
-                    0,
-                    min(
-                        v8.state.queue_index + direction,
-                        len(queue) - 1,
-                    ),
-                )
-                update_queue_window(spotify, state, v8)
-
-                if serial_manager.is_connected:
-                    await send_state_if_changed(serial_manager, state)
+            if changed and serial_manager.is_connected:
+                await send_state_if_changed(serial_manager, state)
             return
 
         v8.move_selection(
@@ -117,26 +99,13 @@ async def process_display_command(
 
     if command == "utility_select":
         if v8.state.view == "queue":
-            queue = spotify._chrome_bridge.selected_or_playing_queue()
+            success, queue_index = queue_controller.select_current()
 
-            if queue:
-                queue_index = max(
-                    0,
-                    min(v8.state.queue_index, len(queue) - 1),
-                )
-                success = spotify._chrome_bridge.activate_queue_item(
-                    queue_index
-                )
-
-                if success:
-                    queue_follow_state.manual_navigation = False
-                    queue_follow_state.selected_track = ""
-
-                log(
-                    "Queue selection "
-                    f"{queue_index}: "
-                    f"{'sent' if success else 'unavailable'}"
-                )
+            log(
+                "Queue selection "
+                f"{queue_index}: "
+                f"{'sent' if success else 'unavailable'}"
+            )
             return
 
         result = v8.activate()
@@ -159,22 +128,11 @@ async def process_display_command(
     if v8.state.view != "now_playing":
         if command in ("previous", "next"):
             if v8.state.view == "queue":
-                queue = spotify._chrome_bridge.selected_or_playing_queue()
+                direction = -1 if command == "previous" else 1
+                changed = queue_controller.move(direction)
 
-                if queue:
-                    direction = -1 if command == "previous" else 1
-                    queue_follow_state.manual_navigation = True
-                    v8.state.queue_index = max(
-                        0,
-                        min(
-                            v8.state.queue_index + direction,
-                            len(queue) - 1,
-                        ),
-                    )
-                    update_queue_window(spotify, state, v8)
-
-                    if serial_manager.is_connected:
-                        await send_state_if_changed(serial_manager, state)
+                if changed and serial_manager.is_connected:
+                    await send_state_if_changed(serial_manager, state)
                 return
 
             v8.move_selection(-1 if command == "previous" else 1)
