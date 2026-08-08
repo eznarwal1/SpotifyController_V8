@@ -11,7 +11,10 @@
         "includeDir": ".",
         "srcDir": "src",
         "srcFilter": [
-            "+<*>"
+            "+<*>",
+            "-<demos/>",
+            "-<examples/>",
+            "-<tests/>"
         ]
     },
     "license": "MIT",
