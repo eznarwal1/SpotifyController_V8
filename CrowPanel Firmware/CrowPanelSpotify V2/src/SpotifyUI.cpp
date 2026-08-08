@@ -306,6 +306,21 @@ void SpotifyUI::create(lv_obj_t* screen)
     );
 
     lv_obj_set_pos(sourceImageObject_, 0, 0);
+    lv_obj_set_style_bg_opa(
+        sourceImageObject_,
+        LV_OPA_TRANSP,
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_border_width(
+        sourceImageObject_,
+        0,
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_shadow_width(
+        sourceImageObject_,
+        0,
+        LV_PART_MAIN
+    );
 
     lv_obj_add_flag(
         sourceImageObject_,
@@ -324,6 +339,21 @@ void SpotifyUI::create(lv_obj_t* screen)
         MetadataImage::HEIGHT
     );
     lv_obj_set_pos(metadataImageObject_, 290, 66);
+    lv_obj_set_style_bg_opa(
+        metadataImageObject_,
+        LV_OPA_TRANSP,
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_border_width(
+        metadataImageObject_,
+        0,
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_shadow_width(
+        metadataImageObject_,
+        0,
+        LV_PART_MAIN
+    );
     lv_obj_add_flag(
         metadataImageObject_,
         LV_OBJ_FLAG_HIDDEN
@@ -670,6 +700,15 @@ void SpotifyUI::create(lv_obj_t* screen)
         LV_PART_MAIN
     );
     lv_obj_set_style_border_width(artworkContainer_, 0, LV_PART_MAIN);
+
+    // The artwork bitmap is exactly the same size as this container.
+    // Remove any theme/default padding so the image can reach every edge.
+    lv_obj_set_style_pad_all(
+        artworkContainer_,
+        0,
+        LV_PART_MAIN
+    );
+
     lv_obj_set_style_radius(
         artworkContainer_,
         ARTWORK_RADIUS,
@@ -705,7 +744,10 @@ void SpotifyUI::create(lv_obj_t* screen)
         true,
         LV_PART_MAIN
     );
-    lv_obj_center(artworkImage_);
+    // Pin the 210x210 image directly to the 210x210 container instead of
+    // relying on centering. This prevents a theme/content-area offset from
+    // exposing a thin strip of the container around the artwork.
+    lv_obj_set_pos(artworkImage_, 0, 0);
     lv_obj_add_flag(artworkImage_, LV_OBJ_FLAG_HIDDEN);
 
     artworkText_ = lv_label_create(artworkContainer_);
@@ -1613,4 +1655,3 @@ void SpotifyUI::setObjectVisible(
         lv_obj_add_flag(object, LV_OBJ_FLAG_HIDDEN);
     }
 }
-
