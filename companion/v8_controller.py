@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from audio_mixer import ApplicationMixer
-from dashboard import snapshot as dashboard_snapshot
-from notifications import NotificationCenter
 from themes import ThemeManager
 
 
@@ -12,7 +10,6 @@ VIEWS = (
     "now_playing",
     "queue",
     "mixer",
-    "notifications",
     "themes",
 )
 
@@ -28,7 +25,6 @@ class V8Controller:
     def __init__(self) -> None:
         self.state = V8State()
         self.mixer = ApplicationMixer()
-        self.notifications = NotificationCenter()
         self.themes = ThemeManager()
 
     def next_view(self) -> str:
@@ -72,14 +68,3 @@ class V8Controller:
             amount,
         )
 
-    def dashboard(
-        self,
-        battery_present: bool,
-        battery_percent: int,
-        battery_charging: bool,
-    ):
-        return dashboard_snapshot(
-            battery_present,
-            battery_percent,
-            battery_charging,
-        )

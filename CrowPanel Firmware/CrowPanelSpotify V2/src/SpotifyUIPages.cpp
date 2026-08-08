@@ -73,25 +73,6 @@ void SpotifyUI::updatePageVisibility()
     setObjectVisible(mixerMuteButton_, mixerPage);
     setObjectVisible(mixerUpButton_, mixerPage);
 
-    const bool showNotification = false;
-
-    setObjectVisible(
-        notificationBanner_,
-        showNotification
-    );
-
-    if (showNotification)
-    {
-        lv_label_set_text(
-            notificationBanner_,
-            state_.notificationText.c_str()
-        );
-
-        // Notifications are overlays. Keep the banner above native Queue,
-        // Mixer, artwork, and streamed utility-page objects.
-        lv_obj_move_foreground(notificationBanner_);
-    }
-
     if (nowPlaying)
     {
         lv_label_set_text(viewLabel_, "Now");
@@ -103,10 +84,6 @@ void SpotifyUI::updatePageVisibility()
     else if (state_.viewMode.equalsIgnoreCase("mixer"))
     {
         lv_label_set_text(viewLabel_, "Mixer");
-    }
-    else if (state_.viewMode.equalsIgnoreCase("notifications"))
-    {
-        lv_label_set_text(viewLabel_, "Alerts");
     }
     else if (state_.viewMode.equalsIgnoreCase("themes"))
     {

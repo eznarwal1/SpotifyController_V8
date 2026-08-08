@@ -122,7 +122,6 @@ private:
     lv_obj_t* mixerMuteLabel_;
     lv_obj_t* mixerUpButton_;
     lv_obj_t* mixerUpLabel_;
-    lv_obj_t* notificationBanner_;
 
     bool displayedPlaying_;
     bool playPending_;

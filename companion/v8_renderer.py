@@ -75,8 +75,6 @@ def render_view(
     queue_status: str,
     mixer: list,
     mixer_index: int,
-    notifications: list[str],
-    dashboard,
     themes: list[tuple[str, dict]],
     theme_index: int,
 ) -> bytes:
@@ -95,7 +93,6 @@ def render_view(
     headings = {
         "queue": "Queue",
         "mixer": "Application Mixer",
-        "notifications": "Notifications",
         "themes": "Themes",
     }
     draw.text((8, 4), headings.get(view, "Now Playing"), fill=primary, font=title_font)
@@ -145,15 +142,6 @@ def render_view(
                 label = _truncate(draw, label, 330, row_font)
                 draw.text((12, y), label, fill=accent if selected else primary, font=row_font)
                 draw.text((390, y), f"{item.volume:3d}%", fill=secondary, font=row_font)
-
-    elif view == "notifications":
-        if not notifications:
-            draw.text((12, 58), "No active notifications.", fill=secondary, font=row_font)
-        else:
-            for row, text in enumerate(notifications[-3:]):
-                y = 50 + row * 31
-                draw.rounded_rectangle((8, y - 3, WIDTH - 8, y + 24), radius=7, fill=panel)
-                draw.text((16, y), _truncate(draw, text, WIDTH - 34, row_font), fill=primary, font=row_font)
 
 
     elif view == "themes":

@@ -152,7 +152,6 @@ SpotifyUI::SpotifyUI()
       mixerMuteLabel_(nullptr),
       mixerUpButton_(nullptr),
       mixerUpLabel_(nullptr),
-      notificationBanner_(nullptr),
       displayedPlaying_(false),
       playPending_(false),
       expectedPlaying_(false),
@@ -648,48 +647,6 @@ void SpotifyUI::create(lv_obj_t* screen)
     mixerUpLabel_ = lv_label_create(mixerUpButton_);
     lv_label_set_text(mixerUpLabel_, "+");
     lv_obj_center(mixerUpLabel_);
-
-    notificationBanner_ = lv_label_create(screen);
-    lv_obj_set_width(notificationBanner_, 470);
-    lv_obj_set_pos(notificationBanner_, 290, 350);
-    lv_label_set_long_mode(
-        notificationBanner_,
-        LV_LABEL_LONG_DOT
-    );
-    lv_obj_set_style_text_align(
-        notificationBanner_,
-        LV_TEXT_ALIGN_CENTER,
-        LV_PART_MAIN
-    );
-    lv_obj_set_style_text_color(
-        notificationBanner_,
-        lv_color_white(),
-        LV_PART_MAIN
-    );
-    lv_obj_set_style_bg_color(
-        notificationBanner_,
-        lv_color_hex(0x303030),
-        LV_PART_MAIN
-    );
-    lv_obj_set_style_bg_opa(
-        notificationBanner_,
-        LV_OPA_90,
-        LV_PART_MAIN
-    );
-    lv_obj_set_style_pad_all(
-        notificationBanner_,
-        8,
-        LV_PART_MAIN
-    );
-    lv_obj_set_style_radius(
-        notificationBanner_,
-        8,
-        LV_PART_MAIN
-    );
-    lv_obj_add_flag(
-        notificationBanner_,
-        LV_OBJ_FLAG_HIDDEN
-    );
 
     artworkContainer_ = lv_obj_create(screen);
     lv_obj_set_size(artworkContainer_, ARTWORK_SIZE, ARTWORK_SIZE);

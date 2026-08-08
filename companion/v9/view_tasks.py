@@ -38,12 +38,6 @@ async def v8_view_loop(
         state.view_mode = view
         state.notification_text = ""
 
-        v8.notifications.update_status(
-            discord_call=state.discord_call_active,
-            battery_present=state.battery_present,
-            battery_percent=state.battery_percent,
-            battery_charging=state.battery_charging,
-        )
 
         if view == "now_playing":
             last_render_key = None
@@ -87,15 +81,6 @@ async def v8_view_loop(
             await asyncio.sleep(0.35)
             continue
 
-        notifications = [
-            item.text
-            for item in v8.notifications.active()
-        ]
-        dashboard = v8.dashboard(
-            state.battery_present,
-            state.battery_percent,
-            state.battery_charging,
-        )
         themes = v8.themes.themes()
         theme_index = v8.themes.selected_index()
         active_theme = v8.themes.active()
@@ -112,11 +97,6 @@ async def v8_view_loop(
                 for item in mixer
             ),
             v8.state.mixer_index,
-            tuple(notifications),
-            dashboard.cpu_percent,
-            dashboard.memory_percent,
-            dashboard.battery_text,
-            dashboard.network_text,
             theme_index,
             active_theme.get("name", ""),
             serial_manager.is_connected,
@@ -138,8 +118,6 @@ async def v8_view_loop(
                     queue_status=queue_status,
                     mixer=mixer,
                     mixer_index=v8.state.mixer_index,
-                    notifications=notifications,
-                    dashboard=dashboard,
                     themes=themes,
                     theme_index=theme_index,
                 )
@@ -160,9 +138,7 @@ async def v8_view_loop(
                     f"{type(exc).__name__}: {exc}"
                 )
 
-        if view == "dashboard":
-            await asyncio.sleep(2.0)
-        elif view == "mixer":
+        if view == "mixer":
             await asyncio.sleep(0.8)
         else:
             await asyncio.sleep(0.25)
