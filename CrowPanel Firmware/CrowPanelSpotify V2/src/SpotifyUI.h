@@ -28,6 +28,8 @@ private:
     static void playPauseEvent(lv_event_t* event);
     static void previousEvent(lv_event_t* event);
     static void nextEvent(lv_event_t* event);
+    static void shuffleEvent(lv_event_t* event);
+    static void repeatEvent(lv_event_t* event);
     static void sourceEvent(lv_event_t* event);
     static void discordMuteEvent(lv_event_t* event);
     static void discordDeafenEvent(lv_event_t* event);
@@ -70,7 +72,9 @@ private:
     lv_obj_t* artworkContainer_;
     lv_obj_t* artworkImage_;
     lv_obj_t* artworkText_;
+    lv_obj_t* shuffleButton_;
     lv_obj_t* shuffleLabel_;
+    lv_obj_t* repeatButton_;
     lv_obj_t* repeatLabel_;
     lv_obj_t* sourceButton_;
     lv_obj_t* metadataImageObject_;

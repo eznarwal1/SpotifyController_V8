@@ -497,6 +497,38 @@ class SpotifyController:
             else await session.try_skip_next_async()
         )
 
+    async def toggle_shuffle(self) -> bool:
+        if self._selected_chrome_tab() is not None:
+            return False
+
+        session = await self._select_active_media_session()
+        if session is None:
+            return False
+
+        playback_info = session.get_playback_info()
+        current_value = getattr(
+            playback_info,
+            "is_shuffle_active",
+            False,
+        )
+        current = bool(
+            False if current_value is None else current_value
+        )
+
+        success = await session.try_change_shuffle_active_async(
+            not current
+        )
+
+        if success:
+            _log(
+                "Shuffle changed to "
+                f"{'On' if not current else 'Off'}"
+            )
+        else:
+            _log("Shuffle change was rejected by the media session.")
+
+        return success
+
     async def cycle_repeat_mode(self) -> bool:
         if self._selected_chrome_tab() is not None:
             return False

@@ -102,7 +102,9 @@ SpotifyUI::SpotifyUI()
       artworkContainer_(nullptr),
       artworkImage_(nullptr),
       artworkText_(nullptr),
+      shuffleButton_(nullptr),
       shuffleLabel_(nullptr),
+      repeatButton_(nullptr),
       repeatLabel_(nullptr),
       sourceButton_(nullptr),
       metadataImageObject_(nullptr),
@@ -923,23 +925,59 @@ void SpotifyUI::create(lv_obj_t* screen)
         LV_PART_MAIN
     );
 
-    shuffleLabel_ = lv_label_create(screen);
-    lv_label_set_text(shuffleLabel_, "Shuffle");
-    lv_obj_set_pos(shuffleLabel_, 330, 378);
-    lv_obj_set_style_text_color(
-        shuffleLabel_,
-        lv_color_hex(INACTIVE_CONTROL_COLOR),
+    // Shuffle and Repeat are both status indicators and touch controls.
+    shuffleButton_ = lv_btn_create(screen);
+    lv_obj_set_size(shuffleButton_, 104, 38);
+    lv_obj_set_pos(shuffleButton_, 305, 365);
+    lv_obj_set_style_radius(shuffleButton_, 19, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(
+        shuffleButton_,
+        lv_color_hex(PANEL_COLOR),
         LV_PART_MAIN
     );
-    lv_obj_set_style_text_font(
-        shuffleLabel_,
-        &lv_font_montserrat_16,
-        LV_PART_MAIN
+    lv_obj_set_style_shadow_width(shuffleButton_, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(shuffleButton_, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(
+        shuffleButton_,
+        shuffleEvent,
+        LV_EVENT_RELEASED,
+        nullptr
     );
 
-    repeatLabel_ = lv_label_create(screen);
+    shuffleLabel_ = lv_label_create(shuffleButton_);
+    lv_label_set_text(shuffleLabel_, "Shuffle");
+    lv_obj_set_style_text_color(
+        shuffleLabel_,
+        lv_color_hex(INACTIVE_CONTROL_COLOR),
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_text_font(
+        shuffleLabel_,
+        &lv_font_montserrat_16,
+        LV_PART_MAIN
+    );
+    lv_obj_center(shuffleLabel_);
+
+    repeatButton_ = lv_btn_create(screen);
+    lv_obj_set_size(repeatButton_, 118, 38);
+    lv_obj_set_pos(repeatButton_, 622, 365);
+    lv_obj_set_style_radius(repeatButton_, 19, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(
+        repeatButton_,
+        lv_color_hex(PANEL_COLOR),
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_shadow_width(repeatButton_, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(repeatButton_, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(
+        repeatButton_,
+        repeatEvent,
+        LV_EVENT_RELEASED,
+        nullptr
+    );
+
+    repeatLabel_ = lv_label_create(repeatButton_);
     lv_label_set_text(repeatLabel_, "Repeat");
-    lv_obj_set_pos(repeatLabel_, 650, 378);
     lv_obj_set_style_text_color(
         repeatLabel_,
         lv_color_hex(INACTIVE_CONTROL_COLOR),
@@ -950,6 +988,7 @@ void SpotifyUI::create(lv_obj_t* screen)
         &lv_font_montserrat_16,
         LV_PART_MAIN
     );
+    lv_obj_center(repeatLabel_);
 
     // Discord voice connection status.
     voiceStatusDot_ = lv_obj_create(screen);

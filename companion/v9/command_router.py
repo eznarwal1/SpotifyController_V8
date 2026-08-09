@@ -165,6 +165,9 @@ async def process_display_command(
     elif command == "next":
         success = await spotify.next_track()
         delay = 0.25
+    elif command == "shuffle":
+        success = await spotify.toggle_shuffle()
+        delay = 0.05
     elif command == "repeat":
         success = await spotify.cycle_repeat_mode()
         delay = 0.05

@@ -243,11 +243,47 @@ void SpotifyUI::discordDeafenEvent(lv_event_t* event)
     }
 }
 
+void SpotifyUI::shuffleEvent(lv_event_t* event)
+{
+    if (lv_event_get_code(event) == LV_EVENT_RELEASED)
+    {
+        Controls::sendShuffle();
+    }
+}
+
+void SpotifyUI::repeatEvent(lv_event_t* event)
+{
+    if (lv_event_get_code(event) == LV_EVENT_RELEASED)
+    {
+        Controls::sendRepeat();
+    }
+}
+
 void SpotifyUI::updateModeIndicators()
 {
     const bool repeatActive =
         !state_.repeat.equalsIgnoreCase("None") &&
         state_.repeat.length() > 0;
+
+    lv_obj_set_style_bg_color(
+        shuffleButton_,
+        lv_color_hex(
+            state_.shuffle
+                ? 0x214A31
+                : PANEL_COLOR
+        ),
+        LV_PART_MAIN
+    );
+
+    lv_obj_set_style_bg_color(
+        repeatButton_,
+        lv_color_hex(
+            repeatActive
+                ? 0x214A31
+                : PANEL_COLOR
+        ),
+        LV_PART_MAIN
+    );
 
     lv_obj_set_style_text_color(
         shuffleLabel_,
@@ -281,6 +317,8 @@ void SpotifyUI::updateModeIndicators()
     {
         lv_label_set_text(repeatLabel_, "Repeat");
     }
+
+    lv_obj_center(repeatLabel_);
 }
 
 void SpotifyUI::updatePlayPauseIcon(bool playing)

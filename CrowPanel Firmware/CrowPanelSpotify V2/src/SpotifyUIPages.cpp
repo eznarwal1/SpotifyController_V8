@@ -23,8 +23,8 @@ void SpotifyUI::updatePageVisibility()
     setObjectVisible(progressBar_, nowPlaying);
     setObjectVisible(elapsed_, nowPlaying);
     setObjectVisible(duration_, nowPlaying);
-    setObjectVisible(shuffleLabel_, nowPlaying);
-    setObjectVisible(repeatLabel_, nowPlaying);
+    setObjectVisible(shuffleButton_, nowPlaying);
+    setObjectVisible(repeatButton_, nowPlaying);
     setObjectVisible(voiceStatusDot_, nowPlaying);
     setObjectVisible(statusLabel_, nowPlaying);
     setObjectVisible(batteryLabel_, nowPlaying);
