@@ -36,8 +36,6 @@ async def v8_view_loop(
     while not stop_event.is_set():
         view = view_navigator.current
         state.view_mode = view
-        state.notification_text = ""
-
 
         if view == "now_playing":
             last_render_key = None
