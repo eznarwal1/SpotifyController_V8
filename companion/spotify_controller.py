@@ -498,8 +498,12 @@ class SpotifyController:
         )
 
     async def toggle_shuffle(self) -> bool:
-        if self._selected_chrome_tab() is not None:
-            return False
+        chrome_tab = self._selected_chrome_tab()
+        if chrome_tab is not None:
+            return self._chrome_bridge.enqueue_command(
+                chrome_tab.tab_id,
+                "shuffle_toggle",
+            )
 
         session = await self._select_active_media_session()
         if session is None:
@@ -530,8 +534,12 @@ class SpotifyController:
         return success
 
     async def cycle_repeat_mode(self) -> bool:
-        if self._selected_chrome_tab() is not None:
-            return False
+        chrome_tab = self._selected_chrome_tab()
+        if chrome_tab is not None:
+            return self._chrome_bridge.enqueue_command(
+                chrome_tab.tab_id,
+                "repeat_cycle",
+            )
 
         session = await self._select_active_media_session()
         if session is None:
@@ -590,8 +598,8 @@ class SpotifyController:
                 ),
                 position_seconds=chrome_tab.position_seconds,
                 duration_seconds=chrome_tab.duration_seconds,
-                shuffle_active=False,
-                repeat_mode="None",
+                shuffle_active=chrome_tab.spotify_shuffle_active,
+                repeat_mode=chrome_tab.spotify_repeat_mode,
             )
 
         session = await self._select_active_media_session()

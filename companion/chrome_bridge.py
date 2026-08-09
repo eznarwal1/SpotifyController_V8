@@ -36,6 +36,8 @@ class ChromeTab:
     queue_available: bool
     queue_status: str
     queue_items: list[str]
+    spotify_shuffle_active: bool
+    spotify_repeat_mode: str
     received_at: float
 
     @property
@@ -223,6 +225,12 @@ class ChromeBridge:
                     str(item) for item in raw.get("queue_items", [])
                     if str(item).strip()
                 ][:250],
+                spotify_shuffle_active=bool(
+                    raw.get("spotify_shuffle_active", False)
+                ),
+                spotify_repeat_mode=str(
+                    raw.get("spotify_repeat_mode", "None")
+                ),
                 received_at=now,
             )
 

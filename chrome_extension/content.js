@@ -322,7 +322,71 @@
     return result;
   }
 
-    function spotifyQueueButton() {
+    function spotifyControlButton(kind) {
+    if (!location.hostname.includes("open.spotify.com")) {
+      return null;
+    }
+
+    const selectors = {
+      shuffle: [
+        '[data-testid="control-button-shuffle"]',
+        'button[aria-label*="shuffle" i]',
+      ],
+      repeat: [
+        '[data-testid="control-button-repeat"]',
+        'button[aria-label*="repeat" i]',
+      ],
+    }[kind] || [];
+
+    for (const selector of selectors) {
+      const button = document.querySelector(selector);
+      if (button instanceof HTMLElement && isVisible(button)) {
+        return button;
+      }
+    }
+
+    return null;
+  }
+
+  function spotifyShuffleActive() {
+    const button = spotifyControlButton("shuffle");
+    if (!button) return false;
+
+    const label = normalizedLabel(button);
+    return (
+      activeButtonState(button) ||
+      label.includes("disable shuffle") ||
+      label.includes("shuffle on") ||
+      label.includes("turn shuffle off")
+    );
+  }
+
+  function spotifyRepeatMode() {
+    const button = spotifyControlButton("repeat");
+    if (!button) return "None";
+
+    const label = normalizedLabel(button);
+
+    if (
+      label.includes("repeat one") ||
+      label.includes("repeat track") ||
+      label.includes("disable repeat one")
+    ) {
+      return "Track";
+    }
+
+    if (
+      label.includes("disable repeat") ||
+      label.includes("repeat all") ||
+      label.includes("repeat context")
+    ) {
+      return "List";
+    }
+
+    return activeButtonState(button) ? "List" : "None";
+  }
+
+  function spotifyQueueButton() {
     const selectors = [
       '[data-testid="control-button-queue"]',
       'button[aria-label="Queue"]',
@@ -664,6 +728,8 @@
       queue_available: queue.available,
       queue_status: queue.status,
       queue_items: queue.items,
+      spotify_shuffle_active: spotifyShuffleActive(),
+      spotify_repeat_mode: spotifyRepeatMode(),
     };
   }
 
@@ -852,6 +918,20 @@
         ".skipControl__previous",
         '[aria-label*="Previous"]',
       ]);
+    }
+
+    if (command === "shuffle_toggle") {
+      const button = spotifyControlButton("shuffle");
+      if (!button) return false;
+      button.click();
+      return true;
+    }
+
+    if (command === "repeat_cycle") {
+      const button = spotifyControlButton("repeat");
+      if (!button) return false;
+      button.click();
+      return true;
     }
 
     if (command === "mute") {
