@@ -49,6 +49,7 @@ private:
     void updateStatusArea();
     void updateNativeQueue();
     void updateNativeMixer();
+    void updateNativeDiscord();
     void updatePageVisibility();
     static void setObjectVisible(lv_obj_t* object, bool visible);
     void setPlayPending(bool pending);
@@ -112,6 +113,15 @@ private:
     lv_obj_t* mixerHeading_;
     lv_obj_t* mixerRows_[4];
     lv_obj_t* mixerBars_[4];
+
+    lv_obj_t* discordPanel_;
+    lv_obj_t* discordHeading_;
+    lv_obj_t* discordChannelLabel_;
+    lv_obj_t* discordMessageRows_[6];
+    lv_obj_t* discordPageMuteButton_;
+    lv_obj_t* discordPageMuteLabel_;
+    lv_obj_t* discordPageDeafenButton_;
+    lv_obj_t* discordPageDeafenLabel_;
     lv_obj_t* utilityPreviousButton_;
     lv_obj_t* utilityPreviousLabel_;
     lv_obj_t* utilitySelectButton_;

@@ -32,6 +32,9 @@ class ChromeTab:
     discord_muted: bool
     discord_deafened: bool
     discord_evidence: str
+    discord_server: str
+    discord_channel: str
+    discord_messages: list[str]
     queue_source: str
     queue_available: bool
     queue_status: str
@@ -218,6 +221,17 @@ class ChromeBridge:
                 discord_muted=bool(raw.get("discord_muted", False)),
                 discord_deafened=bool(raw.get("discord_deafened", False)),
                 discord_evidence=str(raw.get("discord_evidence", "")),
+                discord_server=str(raw.get("discord_server", "")),
+                discord_channel=str(raw.get("discord_channel", "")),
+                discord_messages=[
+                    (
+                        f"{str(item.get('author', '')).strip()}: "
+                        f"{str(item.get('text', '')).strip()}"
+                    ).strip(": ")
+                    for item in raw.get("discord_messages", [])
+                    if isinstance(item, dict)
+                    and str(item.get("text", "")).strip()
+                ][:8],
                 queue_source=str(raw.get("queue_source", "")),
                 queue_available=bool(raw.get("queue_available", False)),
                 queue_status=str(raw.get("queue_status", "")),
@@ -365,6 +379,19 @@ class ChromeBridge:
             tab.discord_call_active,
             tab.discord_muted,
             tab.discord_deafened,
+        )
+
+    def discord_message_snapshot(
+        self,
+    ) -> tuple[str, str, list[str]]:
+        tab = self.get_discord_tab()
+        if tab is None:
+            return "", "", []
+
+        return (
+            tab.discord_server,
+            tab.discord_channel,
+            list(tab.discord_messages),
         )
 
     def enqueue_discord_command(self, command: str) -> bool:

@@ -79,6 +79,34 @@ async def v8_view_loop(
             await asyncio.sleep(0.35)
             continue
 
+        if view == "discord":
+            server, channel, messages, discord_source = (
+                spotify.get_discord_message_snapshot()
+            )
+            source_suffix = (
+                "Desktop"
+                if discord_source == "desktop"
+                else "Web"
+            )
+
+            if server and channel:
+                state.queue_source = (
+                    f"{server} / #{channel} · {source_suffix}"
+                )
+            elif channel:
+                state.queue_source = f"#{channel} · {source_suffix}"
+            elif server:
+                state.queue_source = f"{server} · {source_suffix}"
+            else:
+                state.queue_source = f"Discord · {source_suffix}"
+
+            state.queue_entries = list(messages)[-6:]
+            state.queue_selected_index = 0
+
+            last_render_key = None
+            await asyncio.sleep(0.25)
+            continue
+
         themes = v8.themes.themes()
         theme_index = v8.themes.selected_index()
         active_theme = v8.themes.active()

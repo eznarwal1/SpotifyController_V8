@@ -7,6 +7,7 @@ DEFAULT_VIEW_ORDER = (
     "now_playing",
     "queue",
     "mixer",
+    "discord",
     "themes",
 )
 

@@ -221,6 +221,99 @@
     return connectedPhrases.some((phrase) => text.includes(phrase));
   }
 
+  function discordChannelSnapshot() {
+    if (!location.hostname.endsWith("discord.com")) {
+      return {
+        server: "",
+        channel: "",
+        messages: [],
+      };
+    }
+
+    const titleCandidates = [
+      'header [class*="title"]',
+      'header h1',
+      '[class*="chatContent"] header [class*="title"]',
+      '[aria-label*="channel" i][role="button"]',
+    ];
+
+    let channel = "";
+    for (const selector of titleCandidates) {
+      const element = document.querySelector(selector);
+      const text = cleanSpotifyText(
+        element?.getAttribute("aria-label") ||
+        element?.textContent ||
+        ""
+      );
+      if (text) {
+        channel = text.replace(/^#\s*/, "");
+        break;
+      }
+    }
+
+    const serverCandidates = [
+      '[class*="guildHeader"] [class*="name"]',
+      '[class*="sidebar"] header [class*="name"]',
+      'nav[aria-label*="server" i] [class*="name"]',
+    ];
+
+    let server = "";
+    for (const selector of serverCandidates) {
+      const element = document.querySelector(selector);
+      const text = cleanSpotifyText(element?.textContent || "");
+      if (text) {
+        server = text;
+        break;
+      }
+    }
+
+    const rows = Array.from(
+      document.querySelectorAll(
+        [
+          'li[id^="chat-messages-"]',
+          '[data-list-item-id^="chat-messages"]',
+          '[class*="messageListItem"]',
+        ].join(",")
+      )
+    ).filter((element) => {
+      return element instanceof HTMLElement && isVisible(element);
+    });
+
+    const messages = [];
+
+    for (const row of rows.slice(-24)) {
+      const authorElement =
+        row.querySelector('[id^="message-username-"]') ||
+        row.querySelector('[class*="username"]');
+
+      const contentElement =
+        row.querySelector('[id^="message-content-"]') ||
+        row.querySelector('[class*="messageContent"]');
+
+      const author = cleanSpotifyText(
+        authorElement?.textContent || ""
+      );
+      const body = cleanSpotifyText(
+        contentElement?.textContent || ""
+      );
+
+      if (!body) {
+        continue;
+      }
+
+      messages.push({
+        author: author || "Discord",
+        text: body,
+      });
+    }
+
+    return {
+      server,
+      channel,
+      messages: messages.slice(-8),
+    };
+  }
+
   function discordStatus() {
     if (!location.hostname.endsWith("discord.com")) {
       return {
@@ -705,6 +798,7 @@
     const element = chooseMediaElement();
     const metadata = mediaMetadata();
     const discord = discordStatus();
+    const discordChannel = discordChannelSnapshot();
     const queue = queueSnapshot();
     logDiscordState(discord);
 
@@ -724,6 +818,9 @@
       discord_muted: discord.muted,
       discord_deafened: discord.deafened,
       discord_evidence: discord.evidence || "",
+      discord_server: discordChannel.server,
+      discord_channel: discordChannel.channel,
+      discord_messages: discordChannel.messages,
       queue_source: queue.source,
       queue_available: queue.available,
       queue_status: queue.status,

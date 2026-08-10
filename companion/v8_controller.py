@@ -10,6 +10,7 @@ VIEWS = (
     "now_playing",
     "queue",
     "mixer",
+    "discord",
     "themes",
 )
 

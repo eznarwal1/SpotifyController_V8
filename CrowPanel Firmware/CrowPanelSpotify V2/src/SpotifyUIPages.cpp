@@ -37,15 +37,19 @@ void SpotifyUI::updatePageVisibility()
     const bool mixerPage =
         state_.viewMode.equalsIgnoreCase("mixer");
 
-    // V9 Queue is native. Other utility pages still use the legacy bitmap.
+    const bool discordPage =
+        state_.viewMode.equalsIgnoreCase("discord");
+
+    // V9 Queue, Mixer, and Discord are native. Themes still uses the legacy bitmap.
     setObjectVisible(
         viewImageObject_,
-        utilityPage && !queuePage && !mixerPage
+        utilityPage && !queuePage && !mixerPage && !discordPage
     );
     setObjectVisible(queuePanel_, queuePage);
 
 
     setObjectVisible(mixerPanel_, mixerPage);
+    setObjectVisible(discordPanel_, discordPage);
     const bool selectableUtility =
         queuePage ||
         mixerPage ||
@@ -84,6 +88,10 @@ void SpotifyUI::updatePageVisibility()
     else if (state_.viewMode.equalsIgnoreCase("mixer"))
     {
         lv_label_set_text(viewLabel_, "Mixer");
+    }
+    else if (state_.viewMode.equalsIgnoreCase("discord"))
+    {
+        lv_label_set_text(viewLabel_, "Discord");
     }
     else if (state_.viewMode.equalsIgnoreCase("themes"))
     {
@@ -280,6 +288,93 @@ void SpotifyUI::updateNativeMixer()
                 ? lv_color_hex(0xED4245)
                 : lv_color_hex(0x5865F2),
             LV_PART_INDICATOR
+        );
+    }
+}
+
+
+void SpotifyUI::updateNativeDiscord()
+{
+    if (discordPanel_ == nullptr)
+    {
+        return;
+    }
+
+    lv_label_set_text(
+        discordChannelLabel_,
+        state_.queueSource.isEmpty()
+            ? "No Discord channel"
+            : state_.queueSource.c_str()
+    );
+
+    for (uint8_t row = 0; row < 6; ++row)
+    {
+        if (row < state_.queueCount)
+        {
+            lv_label_set_text(
+                discordMessageRows_[row],
+                state_.queueEntries[row].c_str()
+            );
+        }
+        else
+        {
+            lv_label_set_text(
+                discordMessageRows_[row],
+                ""
+            );
+        }
+    }
+
+    lv_label_set_text(
+        discordPageMuteLabel_,
+        state_.discordMuted ? "Unmute" : "Mute"
+    );
+    lv_label_set_text(
+        discordPageDeafenLabel_,
+        state_.discordDeafened ? "Undeafen" : "Deafen"
+    );
+    lv_obj_center(discordPageMuteLabel_);
+    lv_obj_center(discordPageDeafenLabel_);
+
+    const lv_color_t activeColor = lv_color_hex(0x5865F2);
+    const lv_color_t warningColor = lv_color_hex(0xDA373C);
+    const lv_color_t disabledColor = lv_color_hex(0x4E5058);
+
+    lv_obj_set_style_bg_color(
+        discordPageMuteButton_,
+        !state_.discordCallActive
+            ? disabledColor
+            : (state_.discordMuted ? warningColor : activeColor),
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_bg_color(
+        discordPageDeafenButton_,
+        !state_.discordCallActive
+            ? disabledColor
+            : (state_.discordDeafened ? warningColor : activeColor),
+        LV_PART_MAIN
+    );
+
+    if (state_.discordCallActive)
+    {
+        lv_obj_clear_state(
+            discordPageMuteButton_,
+            LV_STATE_DISABLED
+        );
+        lv_obj_clear_state(
+            discordPageDeafenButton_,
+            LV_STATE_DISABLED
+        );
+    }
+    else
+    {
+        lv_obj_add_state(
+            discordPageMuteButton_,
+            LV_STATE_DISABLED
+        );
+        lv_obj_add_state(
+            discordPageDeafenButton_,
+            LV_STATE_DISABLED
         );
     }
 }

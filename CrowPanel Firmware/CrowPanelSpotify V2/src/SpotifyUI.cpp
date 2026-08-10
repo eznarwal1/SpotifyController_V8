@@ -140,6 +140,14 @@ SpotifyUI::SpotifyUI()
       mixerHeading_(nullptr),
       mixerRows_{nullptr, nullptr, nullptr, nullptr},
       mixerBars_{nullptr, nullptr, nullptr, nullptr},
+      discordPanel_(nullptr),
+      discordHeading_(nullptr),
+      discordChannelLabel_(nullptr),
+      discordMessageRows_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+      discordPageMuteButton_(nullptr),
+      discordPageMuteLabel_(nullptr),
+      discordPageDeafenButton_(nullptr),
+      discordPageDeafenLabel_(nullptr),
       utilityPreviousButton_(nullptr),
       utilityPreviousLabel_(nullptr),
       utilitySelectButton_(nullptr),
@@ -555,6 +563,146 @@ void SpotifyUI::create(lv_obj_t* screen)
             LV_PART_INDICATOR
         );
     }
+
+    // V9 native Discord mini-client page.
+    discordPanel_ = lv_obj_create(screen);
+    lv_obj_set_size(discordPanel_, 720, 340);
+    lv_obj_set_pos(discordPanel_, 40, 70);
+    lv_obj_set_style_bg_color(
+        discordPanel_,
+        lv_color_hex(0x1E1F22),
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_bg_opa(discordPanel_, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(discordPanel_, 14, LV_PART_MAIN);
+    lv_obj_set_style_border_width(discordPanel_, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(discordPanel_, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(discordPanel_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(discordPanel_, LV_OBJ_FLAG_HIDDEN);
+
+    discordHeading_ = lv_label_create(discordPanel_);
+    lv_label_set_text(discordHeading_, "Discord");
+    lv_obj_set_pos(discordHeading_, 22, 14);
+    lv_obj_set_style_text_font(
+        discordHeading_,
+        &lv_font_montserrat_20,
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_text_color(
+        discordHeading_,
+        lv_color_hex(0xF2F3F5),
+        LV_PART_MAIN
+    );
+
+    discordChannelLabel_ = lv_label_create(discordPanel_);
+    lv_label_set_text(discordChannelLabel_, "No Discord channel");
+    lv_obj_set_width(discordChannelLabel_, 520);
+    lv_obj_set_pos(discordChannelLabel_, 150, 16);
+    lv_label_set_long_mode(
+        discordChannelLabel_,
+        LV_LABEL_LONG_DOT
+    );
+    lv_obj_set_style_text_color(
+        discordChannelLabel_,
+        lv_color_hex(0xB5BAC1),
+        LV_PART_MAIN
+    );
+
+    for (uint8_t index = 0; index < 6; ++index)
+    {
+        discordMessageRows_[index] = lv_label_create(discordPanel_);
+        lv_obj_set_size(discordMessageRows_[index], 664, 34);
+        lv_obj_set_pos(
+            discordMessageRows_[index],
+            28,
+            58 + index * 36
+        );
+        lv_label_set_long_mode(
+            discordMessageRows_[index],
+            LV_LABEL_LONG_DOT
+        );
+        lv_obj_set_style_text_color(
+            discordMessageRows_[index],
+            lv_color_hex(0xDBDEE1),
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_text_font(
+            discordMessageRows_[index],
+            &lv_font_montserrat_14,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_opa(
+            discordMessageRows_[index],
+            LV_OPA_20,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_bg_color(
+            discordMessageRows_[index],
+            lv_color_hex(0x2B2D31),
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_radius(
+            discordMessageRows_[index],
+            7,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_pad_left(
+            discordMessageRows_[index],
+            8,
+            LV_PART_MAIN
+        );
+        lv_obj_set_style_pad_top(
+            discordMessageRows_[index],
+            7,
+            LV_PART_MAIN
+        );
+    }
+
+    discordPageMuteButton_ = lv_btn_create(discordPanel_);
+    lv_obj_set_size(discordPageMuteButton_, 150, 44);
+    lv_obj_set_pos(discordPageMuteButton_, 170, 286);
+    lv_obj_set_style_radius(
+        discordPageMuteButton_,
+        10,
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_shadow_width(
+        discordPageMuteButton_,
+        0,
+        LV_PART_MAIN
+    );
+    lv_obj_add_event_cb(
+        discordPageMuteButton_,
+        discordMuteEvent,
+        LV_EVENT_RELEASED,
+        nullptr
+    );
+    discordPageMuteLabel_ = lv_label_create(discordPageMuteButton_);
+    lv_label_set_text(discordPageMuteLabel_, "Mute");
+    lv_obj_center(discordPageMuteLabel_);
+
+    discordPageDeafenButton_ = lv_btn_create(discordPanel_);
+    lv_obj_set_size(discordPageDeafenButton_, 150, 44);
+    lv_obj_set_pos(discordPageDeafenButton_, 400, 286);
+    lv_obj_set_style_radius(
+        discordPageDeafenButton_,
+        10,
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_shadow_width(
+        discordPageDeafenButton_,
+        0,
+        LV_PART_MAIN
+    );
+    lv_obj_add_event_cb(
+        discordPageDeafenButton_,
+        discordDeafenEvent,
+        LV_EVENT_RELEASED,
+        nullptr
+    );
+    discordPageDeafenLabel_ = lv_label_create(discordPageDeafenButton_);
+    lv_label_set_text(discordPageDeafenLabel_, "Deafen");
+    lv_obj_center(discordPageDeafenLabel_);
 
     // Utility-page navigation. These live below the PC-rendered page, so they
     // never overlap queue/mixer content.
@@ -1599,11 +1747,13 @@ void SpotifyUI::applyState(const AppState& state)
     if (statusChanged)
     {
         updateStatusArea();
+        updateNativeDiscord();
     }
 
     if (queueChanged)
     {
         updateNativeQueue();
+        updateNativeDiscord();
     }
 
     if (mixerChanged)

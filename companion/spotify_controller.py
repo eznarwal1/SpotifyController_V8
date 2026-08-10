@@ -25,6 +25,7 @@ from winrt.windows.media import MediaPlaybackAutoRepeatMode
 
 from ui_state import MediaState
 from chrome_bridge import ChromeTab, get_chrome_bridge
+from discord_desktop import get_discord_desktop_bridge
 
 
 USER_AGENT = "SpotifyControllerDisplay/4.0 (personal desktop display)"
@@ -215,6 +216,7 @@ class SpotifyController:
         self._manual_session_key: tuple[str, str] | None = None
         self._manual_chrome_tab_id: int | None = None
         self._chrome_bridge = get_chrome_bridge()
+        self._discord_desktop = get_discord_desktop_bridge()
         self._current_application_name = "Media"
         self._artwork_cache: dict[tuple[str, str, str, int, int], bytes] = {}
         self._last_musicbrainz_request = 0.0
@@ -226,7 +228,9 @@ class SpotifyController:
             await GlobalSystemMediaTransportControlsSessionManager.request_async()
         )
         self._chrome_bridge.start()
+        self._discord_desktop.start()
         _log("Chrome tab bridge listening on http://127.0.0.1:8765")
+        _log("Discord Desktop UI Automation bridge started")
 
     def _all_sessions(
         self,
@@ -574,12 +578,49 @@ class SpotifyController:
         return success
 
     def get_discord_status(self) -> tuple[bool, bool, bool]:
+        desktop = self._discord_desktop.snapshot()
+
+        if desktop.accessibility_ready:
+            return (
+                desktop.voice_connected,
+                desktop.muted,
+                desktop.deafened,
+            )
+
         return self._chrome_bridge.discord_status()
 
+    def get_discord_message_snapshot(
+        self,
+    ) -> tuple[str, str, list[str], str]:
+        desktop = self._discord_desktop.snapshot()
+
+        if desktop.accessibility_ready:
+            return (
+                desktop.server,
+                desktop.channel,
+                list(desktop.messages),
+                "desktop",
+            )
+
+        server, channel, messages = (
+            self._chrome_bridge.discord_message_snapshot()
+        )
+        return server, channel, messages, "web"
+
     def toggle_discord_mute(self) -> bool:
+        desktop = self._discord_desktop.snapshot()
+
+        if desktop.accessibility_ready:
+            return self._discord_desktop.enqueue_command("discord_mute")
+
         return self._chrome_bridge.enqueue_discord_command("discord_mute")
 
     def toggle_discord_deafen(self) -> bool:
+        desktop = self._discord_desktop.snapshot()
+
+        if desktop.accessibility_ready:
+            return self._discord_desktop.enqueue_command("discord_deafen")
+
         return self._chrome_bridge.enqueue_discord_command("discord_deafen")
 
     async def get_state(self) -> MediaState | None:
