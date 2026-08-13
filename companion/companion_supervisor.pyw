@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import time
+import logging
 
 COMPANION_DIR = Path(__file__).resolve().parent
 MAIN = COMPANION_DIR / "main.py"
@@ -28,8 +29,8 @@ def log(message: str) -> None:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with LOG.open("a", encoding="utf-8") as handle:
             handle.write(f"[{stamp}] {message}\n")
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.debug("companion_supervisor: log write failed: %s", exc)
 
 
 def acquire_single_instance() -> object | None:
@@ -71,8 +72,8 @@ def run() -> int:
 
     try:
         PID_FILE.write_text(str(os.getpid()), encoding="ascii")
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.debug("companion_supervisor: failed to write pid file: %s", exc)
 
     log("Supervisor started.")
     log(f"Python: {python_exe}")
@@ -102,8 +103,8 @@ def run() -> int:
     finally:
         try:
             PID_FILE.unlink(missing_ok=True)
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.debug("companion_supervisor: failed to remove pid file: %s", exc)
 
 
 if __name__ == "__main__":

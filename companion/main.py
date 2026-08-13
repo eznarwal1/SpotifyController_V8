@@ -1,24 +1,21 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from datetime import datetime
 from pathlib import Path
-import threading
 
 from serial_manager import SerialManager
 from spotify_controller import SpotifyController
 from ui_state import AppState
-from volume_controller import VolumeController
 from v8_controller import V8Controller
-from v9.command_router import process_display_command
+from v9.input_tasks import command_loop, serial_command_loop
+from v9.media_tasks import artwork_loop, metadata_image_loop, source_image_loop
 from v9.navigation_bridge import V8ViewNavigator
 from v9.queue_controller import QueueController
 from v9.runtime_state import polling_loop, send_current_state
-from v9.media_tasks import artwork_loop, metadata_image_loop, source_image_loop
-from v9.input_tasks import command_loop, serial_command_loop
 from v9.view_tasks import v8_view_loop
-from v9.state_sender import send_state_if_changed, reset_state_sender
-
+from volume_controller import VolumeController
 
 DEBUG_LOG = Path(__file__).with_name("debug.log")
 _log_lock = threading.Lock()
@@ -34,7 +31,10 @@ def log(message: str) -> None:
                 file.write(line + "\n")
                 file.flush()
         except OSError:
-            pass
+            try:
+                print("Failed to write debug log:", OSError)
+            except Exception:
+                pass
 
     print(line, flush=True)
 
@@ -46,7 +46,10 @@ def reset_log() -> None:
             encoding="utf-8",
         )
     except OSError:
-        pass
+        try:
+            print("Failed to reset debug log")
+        except Exception:
+            pass
 
 
 def format_time(seconds: int) -> str:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from ui_state import AppState
+
 from v9.queue_controller import QueueController
 
 

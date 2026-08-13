@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import threading
 import time
+import logging
+from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
-
 
 HOST = "127.0.0.1"
 PORT = 8765
@@ -152,6 +152,7 @@ class ChromeBridge:
                         raise ValueError("tabs must be a list")
                     bridge.update_tabs(tabs)
                 except Exception as exc:
+                    logging.exception("ChromeBridge: failed to process /tabs POST")
                     self._send_json(
                         400,
                         {

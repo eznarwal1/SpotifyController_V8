@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Callable
+from collections.abc import Callable
 
 from serial_manager import SerialManager
 from spotify_controller import SpotifyController
@@ -9,13 +9,17 @@ from ui_state import AppState
 from v8_controller import V8Controller
 from v8_renderer import (
     HEIGHT as VIEW_HEIGHT,
+)
+from v8_renderer import (
     WIDTH as VIEW_WIDTH,
+)
+from v8_renderer import (
     render_view,
 )
+
 from v9.mixer_model import build_mixer_state
 from v9.navigation_bridge import V8ViewNavigator
 from v9.queue_controller import QueueController
-
 
 LogFn = Callable[[str], None]
 

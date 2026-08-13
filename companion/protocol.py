@@ -7,7 +7,6 @@ from typing import Any
 
 from ui_state import AppState
 
-
 PROTOCOL_MAGIC = b"SPV2"
 PROTOCOL_VERSION = 2
 PACKET_TYPE_ARTWORK_RGB565 = 1

@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Callable
+from collections.abc import Callable
 
 from serial_manager import SerialManager
 from spotify_controller import SpotifyController
 from system_status import get_battery_status
 from ui_state import AppState, MediaState
 from volume_controller import VolumeController
-from v9.state_sender import reset_state_sender, send_state_if_changed
 
+from v9.state_sender import reset_state_sender, send_state_if_changed
 
 LogFn = Callable[[str], None]
 DisplayFn = Callable[[AppState], None]

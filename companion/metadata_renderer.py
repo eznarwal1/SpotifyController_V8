@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import os
 import struct
 import threading
+from dataclasses import dataclass
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
-
 
 PANEL_WIDTH = 470
 PANEL_HEIGHT = 118

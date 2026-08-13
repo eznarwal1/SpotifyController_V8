@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from v8_controller import V8Controller
+
 from v9.view_controller import ViewController
 
 
@@ -45,7 +46,7 @@ class V8ViewNavigator:
     controller: ViewController
 
     @classmethod
-    def create(cls, v8: V8Controller) -> "V8ViewNavigator":
+    def create(cls, v8: V8Controller) -> V8ViewNavigator:
         order = discover_v8_view_order(v8)
         return cls(
             v8=v8,

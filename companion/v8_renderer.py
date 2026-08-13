@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import os
 import struct
-from typing import Iterable
+from collections.abc import Iterable
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
-
 
 WIDTH = 470
 HEIGHT = 160

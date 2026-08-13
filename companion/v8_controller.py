@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from audio_mixer import ApplicationMixer
 from themes import ThemeManager
 
-
 VIEWS = (
     "now_playing",
     "queue",

@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 BASE_DIR = Path(__file__).resolve().parent
 THEMES_PATH = BASE_DIR / "themes.json"
 SETTINGS_PATH = BASE_DIR / "v8_settings.json"
@@ -27,8 +26,10 @@ class ThemeManager:
             key = str(settings.get("theme", "default"))
             if key in self._themes:
                 return key
-        except Exception:
-            pass
+        except Exception as exc:
+            import logging
+
+            logging.debug("themes: failed to load settings: %s", exc)
         return "default"
 
     def _save(self) -> None:

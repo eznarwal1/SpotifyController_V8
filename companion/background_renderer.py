@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
 import struct
+from pathlib import Path
 
 from PIL import Image, ImageEnhance, ImageFilter
-
 
 BACKGROUND_WIDTH = 800
 BACKGROUND_HEIGHT = 480

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from serial_manager import SerialManager
 from spotify_controller import SpotifyController
 from ui_state import AppState
-from volume_controller import VolumeController
 from v8_controller import V8Controller
+from volume_controller import VolumeController
+
 from v9.navigation_bridge import V8ViewNavigator
 from v9.queue_controller import QueueController
 from v9.state_sender import send_state_if_changed
-
 
 LogFn = Callable[[str], None]
 

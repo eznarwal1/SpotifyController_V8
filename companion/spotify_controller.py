@@ -1,32 +1,31 @@
 from __future__ import annotations
 
 import asyncio
-from difflib import SequenceMatcher
 import hashlib
-from io import BytesIO
 import json
-from pathlib import Path
+import logging
 import re
 import struct
 import threading
 import time
 import unicodedata
+from difflib import SequenceMatcher
+from io import BytesIO
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from chrome_bridge import ChromeTab, get_chrome_bridge
+from discord_desktop import get_discord_desktop_bridge
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+from ui_state import MediaState
+from winrt.windows.media import MediaPlaybackAutoRepeatMode
 from winrt.windows.media.control import (
     GlobalSystemMediaTransportControlsSession,
     GlobalSystemMediaTransportControlsSessionManager,
 )
-from winrt.windows.media import MediaPlaybackAutoRepeatMode
-
-from ui_state import MediaState
-from chrome_bridge import ChromeTab, get_chrome_bridge
-from discord_desktop import get_discord_desktop_bridge
-
 
 USER_AGENT = "SpotifyControllerDisplay/4.0 (personal desktop display)"
 BASE_DIR = Path(__file__).resolve().parent
@@ -47,8 +46,8 @@ def _log(message: str) -> None:
     try:
         with LOOKUP_LOG_PATH.open("a", encoding="utf-8", buffering=1) as file:
             file.write(line + "\n")
-    except OSError:
-        pass
+    except OSError as exc:
+        logging.debug("_log: failed to write lookup log: %s", exc)
 
 
 def _seconds(value) -> int:
@@ -71,8 +70,8 @@ def _repeat_mode_name(value: Any) -> str | None:
             return "List"
         if value == MediaPlaybackAutoRepeatMode.TRACK:
             return "Track"
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.debug("_repeat_mode_name: MediaPlaybackAutoRepeatMode check failed: %s", exc)
 
     name = getattr(value, "name", None)
     text_value = str(name if name is not None else value).strip().casefold()
@@ -246,7 +245,8 @@ class SpotifyController:
         try:
             status = session.get_playback_info().playback_status
             return _playback_status_name(status).casefold() == "playing"
-        except Exception:
+        except Exception as exc:
+            logging.debug("_session_is_playing: failed to get playback status: %s", exc)
             return False
 
     @staticmethod
@@ -270,7 +270,8 @@ class SpotifyController:
         try:
             properties = await session.try_get_media_properties_async()
             title = (properties.title or "").strip()
-        except Exception:
+        except Exception as exc:
+            logging.debug("_session_key: try_get_media_properties_async failed: %s", exc)
             title = ""
 
         return app_id, title
@@ -422,7 +423,8 @@ class SpotifyController:
         if playing_sessions:
             try:
                 current = self.manager.get_current_session()
-            except Exception:
+            except Exception as exc:
+                logging.debug("_select_active_media_session: get_current_session failed: %s", exc)
                 current = None
 
             if current is not None and current in playing_sessions:
@@ -436,7 +438,8 @@ class SpotifyController:
         else:
             try:
                 selected = self.manager.get_current_session()
-            except Exception:
+            except Exception as exc:
+                logging.debug("_select_active_media_session: fallback get_current_session failed: %s", exc)
                 selected = None
 
             if selected is None:

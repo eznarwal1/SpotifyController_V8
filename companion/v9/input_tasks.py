@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Callable
+from collections.abc import Callable
 
 from serial_manager import SerialManager
 from spotify_controller import SpotifyController
 from ui_state import AppState
-from volume_controller import VolumeController
 from v8_controller import V8Controller
+from volume_controller import VolumeController
+
 from v9.command_router import process_display_command
 from v9.navigation_bridge import V8ViewNavigator
 from v9.queue_controller import QueueController
-
 
 LogFn = Callable[[str], None]
 

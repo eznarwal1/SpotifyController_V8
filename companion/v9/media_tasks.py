@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 import hashlib
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from background_renderer import (
     BACKGROUND_HEIGHT,
@@ -11,11 +11,11 @@ from background_renderer import (
     render_and_cache_blurred_background,
 )
 from metadata_renderer import (
-    MetadataPanel,
     PANEL_HEIGHT,
     PANEL_WIDTH,
     SOURCE_HEIGHT,
     SOURCE_WIDTH,
+    MetadataPanel,
     render_metadata_panel,
     render_source_button,
     set_ui_background,
@@ -24,7 +24,6 @@ from metadata_renderer import (
 from serial_manager import SerialManager
 from spotify_controller import SpotifyController
 from ui_state import AppState
-
 
 ARTWORK_WIDTH = 210
 ARTWORK_HEIGHT = 210

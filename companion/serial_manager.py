@@ -7,17 +7,16 @@ import time
 from typing import Any
 
 import serial
-from serial import SerialException, SerialTimeoutException
-from serial.tools import list_ports
-
 from protocol import (
     make_artwork_packet,
+    make_background_packet,
     make_metadata_packet,
     make_source_packet,
     make_view_packet,
-    make_background_packet,
     parse_command_message,
 )
+from serial import SerialException, SerialTimeoutException
+from serial.tools import list_ports
 
 
 class SerialManager:

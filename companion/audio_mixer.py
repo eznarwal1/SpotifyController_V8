@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+import logging
 
 from pycaw.pycaw import AudioUtilities
 
@@ -31,8 +32,8 @@ class ApplicationMixer:
         if process is not None:
             try:
                 return process.name()
-            except Exception:
-                pass
+            except Exception as exc:
+                logging.debug("_session_name: process.name() failed: %s", exc)
 
         display = str(getattr(session, "DisplayName", "") or "").strip()
         return display or "System audio"
@@ -44,8 +45,8 @@ class ApplicationMixer:
         if process is not None:
             try:
                 return int(process.pid)
-            except Exception:
-                pass
+            except Exception as exc:
+                logging.debug("_process_id: process.pid invalid: %s", exc)
 
         return 0
 
@@ -62,8 +63,8 @@ class ApplicationMixer:
                 # but never keep expired sessions.
                 if int(control.GetState()) == 2:
                     return False
-            except Exception:
-                pass
+            except Exception as exc:
+                logging.debug("_is_usable: control.GetState() failed: %s", exc)
 
         return True
 
@@ -77,7 +78,8 @@ class ApplicationMixer:
 
         try:
             sessions = AudioUtilities.GetAllSessions()
-        except Exception:
+        except Exception as exc:
+            logging.debug("_groups: AudioUtilities.GetAllSessions failed: %s", exc)
             return groups
 
         for session in sessions:
@@ -101,7 +103,8 @@ class ApplicationMixer:
                 try:
                     volumes.append(float(simple.GetMasterVolume()))
                     muted_states.append(bool(simple.GetMute()))
-                except Exception:
+                except Exception as exc:
+                    logging.debug("sessions: reading volume failed: %s", exc)
                     continue
 
             if not volumes:
@@ -146,7 +149,8 @@ class ApplicationMixer:
                 target = max(0.0, min(1.0, current + amount / 100.0))
                 simple.SetMasterVolume(target, None)
                 changed = True
-            except Exception:
+            except Exception as exc:
+                logging.debug("change_volume: SetMasterVolume failed: %s", exc)
                 continue
 
         return changed
@@ -164,7 +168,8 @@ class ApplicationMixer:
                 current_states.append(
                     bool(session.SimpleAudioVolume.GetMute())
                 )
-            except Exception:
+            except Exception as exc:
+                logging.debug("toggle_mute: GetMute failed: %s", exc)
                 continue
 
         if not current_states:
@@ -177,7 +182,8 @@ class ApplicationMixer:
             try:
                 session.SimpleAudioVolume.SetMute(target, None)
                 changed = True
-            except Exception:
+            except Exception as exc:
+                logging.debug("toggle_mute: SetMute failed: %s", exc)
                 continue
 
         return changed

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 DEFAULT_VIEW_ORDER = (
     "now_playing",
     "queue",

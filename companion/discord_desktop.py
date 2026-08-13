@@ -1,18 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import subprocess
 import threading
 import time
+import logging
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 try:
     import comtypes
     import comtypes.client
     from comtypes import GUID
-except Exception:
+except Exception as exc:
+    logging.debug("discord_desktop: comtypes import failed: %s", exc)
     comtypes = None
     GUID = None
 
@@ -141,7 +143,8 @@ class DiscordDesktopBridge:
         try:
             value = element.GetCurrentPropertyValue(prop_id)
             return default if value is None else value
-        except Exception:
+        except Exception as exc:
+            logging.debug("_prop: GetCurrentPropertyValue failed: %s", exc)
             return default
 
     @classmethod
@@ -160,7 +163,8 @@ class DiscordDesktopBridge:
     def _control_type(cls, element) -> int:
         try:
             return int(cls._prop(element, UIA_CONTROL_TYPE, 0))
-        except Exception:
+        except Exception as exc:
+            logging.debug("_control_type: failed: %s", exc)
             return 0
 
     @staticmethod
@@ -176,7 +180,8 @@ class DiscordDesktopBridge:
             try:
                 module = comtypes.client.GetModule(candidate)
                 break
-            except Exception:
+            except Exception as exc:
+                logging.debug("_create_uia: GetModule candidate %s failed: %s", candidate, exc)
                 pass
 
         interface = getattr(module, "IUIAutomation", None) if module else None
@@ -293,7 +298,8 @@ class DiscordDesktopBridge:
                 TREE_SCOPE_DESCENDANTS,
                 uia.CreateTrueCondition(),
             )
-        except Exception:
+        except Exception as exc:
+            logging.debug("_message_text_from_row: FindAll failed: %s", exc)
             children = None
 
         if children is not None:
@@ -445,7 +451,8 @@ class DiscordDesktopBridge:
             )
             invoke.Invoke()
             return True
-        except Exception:
+        except Exception as exc:
+            logging.debug("_invoke: invoke pattern failed: %s", exc)
             return False
 
     @classmethod
@@ -488,12 +495,13 @@ class DiscordDesktopBridge:
         try:
             # COM must be initialized in the worker thread.
             comtypes.CoInitialize()
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.debug("DiscordDesktopBridge: CoInitialize failed: %s", exc)
 
         try:
             uia = self._create_uia()
         except Exception as exc:
+            logging.exception("DiscordDesktopBridge: UI Automation init failed")
             self._set_snapshot(
                 DiscordDesktopSnapshot(
                     detail=f"UI Automation init failed: {exc}",
@@ -557,6 +565,7 @@ class DiscordDesktopBridge:
                     )
                 )
             except Exception as exc:
+                logging.exception("DiscordDesktopBridge worker loop error")
                 self._set_snapshot(
                     DiscordDesktopSnapshot(
                         available=True,

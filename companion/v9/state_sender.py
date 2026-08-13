@@ -6,7 +6,6 @@ from protocol import make_state_message
 from serial_manager import SerialManager
 from ui_state import AppState
 
-
 _last_message_by_manager: dict[int, str] = {}
 
 
