@@ -131,5 +131,8 @@ desktop.ini
 *.log
 companion/*.log
 
+# Background image cache for companion UI
+companion/background_cache/
+
 # Original CrowPanel vendor library bundle
 CrowPanel Firmware/librariesAdvance5.0/
