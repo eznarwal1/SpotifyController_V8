@@ -5,7 +5,6 @@ import struct
 from pathlib import Path
 
 from PIL import Image, ImageEnhance, ImageFilter
-import random
 
 BACKGROUND_WIDTH = 800
 BACKGROUND_HEIGHT = 480
@@ -186,24 +185,65 @@ def render_blurred_background(
     # Add a tiny amount of randomized noise before quantizing to RGB565.
     # This breaks large flat gradients that can produce visible banding
     # (the "topography" effect) after aggressive blur + brightness.
-    def _apply_noise(img: Image.Image, amplitude: int = 2) -> Image.Image:
-        # Operate on raw bytes for speed: img is expected to be 'RGB'.
-        if amplitude <= 0:
-            return img
+    def _floyd_steinberg_dither(img: Image.Image) -> Image.Image:
+        """
+        Apply Floyd–Steinberg error-diffusion dithering targeting the
+        RGB565 quantization (5-6-5). Works in-place on a float buffer.
+        """
+        img = img.convert("RGB")
+        w, h = img.size
+        src = list(img.getdata())
+        # buffer as floats: length w*h*3
+        buf = [float(c) for px in src for c in px]
 
-        data = bytearray(img.tobytes())
-        # Add small signed noise to each channel byte.
-        for i in range(len(data)):
-            n = random.randint(-amplitude, amplitude)
-            v = data[i] + n
-            if v < 0:
-                v = 0
-            elif v > 255:
-                v = 255
-            data[i] = v
+        def _levels_for_channel(c_idx: int) -> int:
+            # R=0 -> 31 levels, G=1 -> 63 levels, B=2 -> 31 levels
+            return 63 if c_idx == 1 else 31
 
-        return Image.frombytes("RGB", img.size, bytes(data))
+        for y in range(h):
+            for x in range(w):
+                base = (y * w + x) * 3
+                for c in range(3):
+                    old = buf[base + c]
+                    levels = _levels_for_channel(c)
+                    q = round(old * levels / 255.0)
+                    # clamp q
+                    if q < 0:
+                        q = 0
+                    elif q > levels:
+                        q = levels
+                    recon = q * 255.0 / levels
+                    err = old - recon
+                    buf[base + c] = recon
+                    # distribute error
+                    # right pixel (x+1, y) -> 7/16
+                    if x + 1 < w:
+                        buf[base + 3 + c] += err * (7.0 / 16.0)
+                    # down-left (x-1, y+1) -> 3/16
+                    if x - 1 >= 0 and y + 1 < h:
+                        idx = ((y + 1) * w + (x - 1)) * 3 + c
+                        buf[idx] += err * (3.0 / 16.0)
+                    # down (x, y+1) -> 5/16
+                    if y + 1 < h:
+                        idx = ((y + 1) * w + x) * 3 + c
+                        buf[idx] += err * (5.0 / 16.0)
+                    # down-right (x+1, y+1) -> 1/16
+                    if x + 1 < w and y + 1 < h:
+                        idx = ((y + 1) * w + (x + 1)) * 3 + c
+                        buf[idx] += err * (1.0 / 16.0)
 
-    image = _apply_noise(image, amplitude=2)
+        # clamp and convert back to bytes
+        out_bytes = bytearray()
+        for v in buf:
+            iv = int(round(v))
+            if iv < 0:
+                iv = 0
+            elif iv > 255:
+                iv = 255
+            out_bytes.append(iv)
+
+        return Image.frombytes("RGB", (w, h), bytes(out_bytes))
+
+    image = _floyd_steinberg_dither(image)
 
     return _image_to_rgb565(image)
