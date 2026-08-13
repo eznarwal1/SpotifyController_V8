@@ -5,6 +5,7 @@ import struct
 from pathlib import Path
 
 from PIL import Image, ImageEnhance, ImageFilter
+import random
 
 BACKGROUND_WIDTH = 800
 BACKGROUND_HEIGHT = 480
@@ -178,7 +179,31 @@ def render_blurred_background(
     )
     image = image.filter(ImageFilter.GaussianBlur(radius=38))
     image = ImageEnhance.Contrast(image).enhance(0.82)
-    image = ImageEnhance.Brightness(image).enhance(0.33)
+    # Slightly increase brightness to make blurred backgrounds less dark.
+    image = ImageEnhance.Brightness(image).enhance(0.45)
     image = ImageEnhance.Color(image).enhance(0.78)
+
+    # Add a tiny amount of randomized noise before quantizing to RGB565.
+    # This breaks large flat gradients that can produce visible banding
+    # (the "topography" effect) after aggressive blur + brightness.
+    def _apply_noise(img: Image.Image, amplitude: int = 2) -> Image.Image:
+        # Operate on raw bytes for speed: img is expected to be 'RGB'.
+        if amplitude <= 0:
+            return img
+
+        data = bytearray(img.tobytes())
+        # Add small signed noise to each channel byte.
+        for i in range(len(data)):
+            n = random.randint(-amplitude, amplitude)
+            v = data[i] + n
+            if v < 0:
+                v = 0
+            elif v > 255:
+                v = 255
+            data[i] = v
+
+        return Image.frombytes("RGB", img.size, bytes(data))
+
+    image = _apply_noise(image, amplitude=2)
 
     return _image_to_rgb565(image)
