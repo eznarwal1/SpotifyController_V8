@@ -11,7 +11,7 @@ class FakeState:
 class FakeV8:
     def __init__(
         self,
-        order=("now_playing", "queue", "mixer", "themes"),
+        order=("now_playing", "queue", "mixer", "discord"),
         current="now_playing",
     ) -> None:
         self.order = tuple(order)
@@ -26,7 +26,7 @@ class FakeV8:
 def test_discovery_restores_original() -> None:
     v8 = FakeV8(current="queue")
     assert discover_v8_view_order(v8) == (
-        "queue", "mixer", "themes", "now_playing"
+        "queue", "mixer", "discord", "now_playing"
     )
     assert v8.state.view == "queue"
 
@@ -45,7 +45,7 @@ def test_external_change_adopted() -> None:
     nav = V8ViewNavigator.create(v8)
     v8.state.view = "mixer"
     assert nav.current == "mixer"
-    assert nav.next() == "themes"
+    assert nav.next() == "discord"
 
 
 if __name__ == "__main__":

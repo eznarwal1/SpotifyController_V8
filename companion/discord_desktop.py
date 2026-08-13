@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import threading
 import time
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -182,7 +182,6 @@ class DiscordDesktopBridge:
                 break
             except Exception as exc:
                 logging.debug("_create_uia: GetModule candidate %s failed: %s", candidate, exc)
-                pass
 
         interface = getattr(module, "IUIAutomation", None) if module else None
 

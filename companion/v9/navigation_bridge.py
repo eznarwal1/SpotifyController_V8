@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from v8_controller import V8Controller
-
 from v9.view_controller import ViewController
 
 

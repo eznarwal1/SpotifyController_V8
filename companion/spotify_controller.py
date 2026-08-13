@@ -17,15 +17,16 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from chrome_bridge import ChromeTab, get_chrome_bridge
-from discord_desktop import get_discord_desktop_bridge
 from PIL import Image, ImageDraw, ImageFont, ImageOps
-from ui_state import MediaState
 from winrt.windows.media import MediaPlaybackAutoRepeatMode
 from winrt.windows.media.control import (
     GlobalSystemMediaTransportControlsSession,
     GlobalSystemMediaTransportControlsSessionManager,
 )
+
+from chrome_bridge import ChromeTab, get_chrome_bridge
+from discord_desktop import get_discord_desktop_bridge
+from ui_state import MediaState
 
 USER_AGENT = "SpotifyControllerDisplay/4.0 (personal desktop display)"
 BASE_DIR = Path(__file__).resolve().parent

@@ -16,7 +16,6 @@ from v8_renderer import (
 from v8_renderer import (
     render_view,
 )
-
 from v9.mixer_model import build_mixer_state
 from v9.navigation_bridge import V8ViewNavigator
 from v9.queue_controller import QueueController

@@ -91,7 +91,6 @@ def render_view(
     headings = {
         "queue": "Queue",
         "mixer": "Application Mixer",
-        "themes": "Themes",
     }
     draw.text((8, 4), headings.get(view, "Now Playing"), fill=primary, font=title_font)
     draw.line((8, 36, WIDTH - 8, 36), fill=panel, width=2)
@@ -142,13 +141,7 @@ def render_view(
                 draw.text((390, y), f"{item.volume:3d}%", fill=secondary, font=row_font)
 
 
-    elif view == "themes":
-        for row, (_key, data) in enumerate(themes):
-            y = 50 + row * 35
-            selected = row == theme_index
-            if selected:
-                draw.rounded_rectangle((8, y - 4, WIDTH - 8, y + 27), radius=8, fill=panel)
-            draw.text((18, y), data["name"], fill=accent if selected else primary, font=row_font)
+    # themes page removed; themes data is not rendered as a page
 
     draw.text(
         (8, HEIGHT - 18),

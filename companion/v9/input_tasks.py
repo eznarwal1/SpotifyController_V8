@@ -7,11 +7,10 @@ from serial_manager import SerialManager
 from spotify_controller import SpotifyController
 from ui_state import AppState
 from v8_controller import V8Controller
-from volume_controller import VolumeController
-
 from v9.command_router import process_display_command
 from v9.navigation_bridge import V8ViewNavigator
 from v9.queue_controller import QueueController
+from volume_controller import VolumeController
 
 LogFn = Callable[[str], None]
 

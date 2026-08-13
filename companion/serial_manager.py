@@ -7,6 +7,9 @@ import time
 from typing import Any
 
 import serial
+from serial import SerialException, SerialTimeoutException
+from serial.tools import list_ports
+
 from protocol import (
     make_artwork_packet,
     make_background_packet,
@@ -15,8 +18,6 @@ from protocol import (
     make_view_packet,
     parse_command_message,
 )
-from serial import SerialException, SerialTimeoutException
-from serial.tools import list_ports
 
 
 class SerialManager:

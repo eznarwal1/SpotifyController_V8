@@ -10,7 +10,7 @@ VIEWS = (
     "queue",
     "mixer",
     "discord",
-    "themes",
+    # "themes" page removed
 )
 
 
@@ -47,8 +47,7 @@ class V8Controller:
                 self.state.mixer_index = (
                     self.state.mixer_index + amount
                 ) % count
-        elif self.state.view == "themes":
-            self.themes.move(amount)
+        # themes page removed: keep ThemeManager available for rendering
 
     def activate(self) -> str:
         if self.state.view == "queue":
@@ -56,8 +55,7 @@ class V8Controller:
         if self.state.view == "mixer":
             self.mixer.toggle_mute(self.state.mixer_index)
             return "mixer_mute"
-        if self.state.view == "themes":
-            return f"theme:{self.themes.apply_selected()}"
+        # themes page removed
         return "none"
 
     def change_volume(self, amount: int) -> bool:

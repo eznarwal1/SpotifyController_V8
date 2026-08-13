@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from spotify_controller import SpotifyController
 from ui_state import AppState
 from v8_controller import V8Controller
-
 from v9.queue_window import (
     build_queue_window,
     find_preserved_selection,
