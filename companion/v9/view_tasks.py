@@ -16,7 +16,6 @@ from v8_renderer import (
 from v8_renderer import (
     render_view,
 )
-from v9.mixer_model import build_mixer_state
 from v9.navigation_bridge import V8ViewNavigator
 from v9.queue_controller import QueueController
 
@@ -58,29 +57,7 @@ async def v8_view_loop(
             await asyncio.sleep(0.25)
             continue
 
-        mixer = v8.mixer.sessions()
-        native_mixer = build_mixer_state(
-            mixer,
-            selected_index=v8.state.mixer_index,
-        )
-        state.mixer_entries = [
-            entry.name
-            for entry in native_mixer.entries
-        ]
-        state.mixer_volumes = [
-            entry.volume
-            for entry in native_mixer.entries
-        ]
-        state.mixer_muted = [
-            entry.muted
-            for entry in native_mixer.entries
-        ]
-        state.mixer_selected_index = native_mixer.selected_index
-
-        if view == "mixer":
-            last_render_key = None
-            await asyncio.sleep(0.35)
-            continue
+        state.brightness = v8.state.brightness
 
         if view == "discord":
             server, channel, messages, discord_source = (
@@ -121,11 +98,7 @@ async def v8_view_loop(
             queue_available,
             queue_status,
             v8.state.queue_index,
-            tuple(
-                (item.name, item.volume, item.muted)
-                for item in mixer
-            ),
-            v8.state.mixer_index,
+            v8.state.brightness,
             theme_index,
             active_theme.get("name", ""),
             serial_manager.is_connected,
@@ -145,10 +118,11 @@ async def v8_view_loop(
                     queue_source=queue_source,
                     queue_available=queue_available,
                     queue_status=queue_status,
-                    mixer=mixer,
-                    mixer_index=v8.state.mixer_index,
+                    mixer=[],
+                    mixer_index=0,
                     themes=themes,
                     theme_index=theme_index,
+                    brightness=v8.state.brightness,
                 )
 
                 sent = await asyncio.to_thread(
@@ -167,7 +141,4 @@ async def v8_view_loop(
                     f"{type(exc).__name__}: {exc}"
                 )
 
-        if view == "mixer":
-            await asyncio.sleep(0.8)
-        else:
-            await asyncio.sleep(0.25)
+        await asyncio.sleep(0.25)

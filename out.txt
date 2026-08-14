@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "C:\Users\Rick\Downloads\SpotifyController_V8\render_settings_test.py", line 1, in <module>
+    from v8_renderer import render_view
+ModuleNotFoundError: No module named 'v8_renderer'

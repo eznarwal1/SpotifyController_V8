@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from audio_mixer import ApplicationMixer
 from themes import ThemeManager
 
 VIEWS = (
     "now_playing",
     "queue",
-    "mixer",
+    "settings",
     "discord",
     # "themes" page removed
 )
@@ -18,13 +17,13 @@ VIEWS = (
 class V8State:
     view: str = "now_playing"
     queue_index: int = 0
-    mixer_index: int = 0
+    # brightness: 0..100
+    brightness: int = 50
 
 
 class V8Controller:
     def __init__(self) -> None:
         self.state = V8State()
-        self.mixer = ApplicationMixer()
         self.themes = ThemeManager()
 
     def next_view(self) -> str:
@@ -41,28 +40,31 @@ class V8Controller:
                 0,
                 self.state.queue_index + amount,
             )
-        elif self.state.view == "mixer":
-            count = len(self.mixer.sessions())
-            if count:
-                self.state.mixer_index = (
-                    self.state.mixer_index + amount
-                ) % count
+        elif self.state.view == "settings":
+            # Match the panel controller's discrete backlight levels.
+            self.state.brightness = max(
+                0,
+                min(100, self.state.brightness + (amount * 10)),
+            )
         # themes page removed: keep ThemeManager available for rendering
 
     def activate(self) -> str:
         if self.state.view == "queue":
             return f"queue_play:{self.state.queue_index}"
-        if self.state.view == "mixer":
-            self.mixer.toggle_mute(self.state.mixer_index)
-            return "mixer_mute"
+        if self.state.view == "settings":
+            # nothing to toggle yet; return current brightness
+            return f"brightness:{self.state.brightness}"
         # themes page removed
         return "none"
 
     def change_volume(self, amount: int) -> bool:
-        if self.state.view != "mixer":
+        # No mixer view available; delegate volume changes to global handlers.
+        return False
+
+    def change_brightness(self, amount: int) -> bool:
+        """Adjust brightness when on the settings view. Returns True if applied."""
+        if self.state.view != "settings":
             return False
-        return self.mixer.change_volume(
-            self.state.mixer_index,
-            amount,
-        )
+        self.state.brightness = max(0, min(100, self.state.brightness + amount))
+        return True
 

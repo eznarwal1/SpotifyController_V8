@@ -42,6 +42,7 @@ class AppState:
     mixer_volumes: list[int] = field(default_factory=list)
     mixer_muted: list[bool] = field(default_factory=list)
     mixer_selected_index: int = 0
+    brightness: int = 50
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

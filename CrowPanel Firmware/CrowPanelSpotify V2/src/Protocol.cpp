@@ -1,4 +1,5 @@
 #include "Protocol.h"
+#include "DisplayManager.h"
 
 #include <cstring>
 
@@ -248,6 +249,9 @@ void Protocol::processJsonLine()
     state.viewMode = static_cast<const char*>(
         document["view_mode"] | "now_playing"
     );
+    state.brightness = static_cast<uint8_t>(
+        constrain(document["brightness"] | 50, 0, 100)
+    );
     state.queueSource = static_cast<const char*>(
         document["queue_source"] | ""
     );
@@ -343,6 +347,7 @@ void Protocol::processJsonLine()
     }
     state.receivedAtMs = millis();
 
+    DisplayManager::setBrightness(state.brightness);
     ui_.applyState(state);
 }
 

@@ -404,6 +404,19 @@ class SpotifyController:
             return None
 
         if self._manual_session_key is not None:
+            # A session's title is part of its display/cycle key, but titles
+            # are mutable metadata rather than session identity. Keep the
+            # exact object selected while Windows still exposes it, and
+            # refresh its key when Spotify changes tracks or playback state.
+            if self._selected_session in sessions:
+                selected_app_id = self._session_id(self._selected_session)
+
+                if selected_app_id == self._manual_session_key[0]:
+                    self._manual_session_key = await self._session_key(
+                        self._selected_session
+                    )
+                    return self._selected_session
+
             for session in sessions:
                 if await self._session_key(session) == self._manual_session_key:
                     self._selected_session = session

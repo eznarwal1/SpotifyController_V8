@@ -95,6 +95,10 @@ async def process_display_command(
         v8.move_selection(
             -1 if command == "utility_previous" else 1
         )
+        state.brightness = v8.state.brightness
+
+        if serial_manager.is_connected:
+            await send_state_if_changed(serial_manager, state)
         return
 
     if command == "utility_select":
@@ -212,4 +216,3 @@ async def process_display_command(
             serial_manager,
             delay_seconds=delay,
         )
-

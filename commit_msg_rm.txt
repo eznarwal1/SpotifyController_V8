@@ -1,0 +1,1 @@
+chore: remove background cache images; add to .gitignore

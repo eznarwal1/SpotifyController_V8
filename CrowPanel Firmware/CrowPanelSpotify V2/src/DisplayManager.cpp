@@ -15,6 +15,30 @@ static void sendI2CCommand(uint8_t command)
     Wire.endTransmission();
 }
 
+void DisplayManager::setBrightness(uint8_t percent)
+{
+    percent = constrain(percent, 0, 100);
+
+    if (percent == 0)
+    {
+        // V1.3+ uses 245 for off. Wake first so an older V1.2 panel
+        // ignores the unsupported command instead of remaining black.
+        sendI2CCommand(0x10);
+        sendI2CCommand(245);
+        return;
+    }
+
+    // 0 is maximum and 244 is minimum on V1.3+ controllers. Sending
+    // 0x10 first is required by V1.2 and is also a safe wake command on
+    // newer revisions.
+    const uint8_t command = static_cast<uint8_t>(
+        ((100U - percent) * 244U) / 100U
+    );
+
+    sendI2CCommand(0x10);
+    sendI2CCommand(command);
+}
+
 void DisplayManager::flush(
     lv_disp_drv_t* display,
     const lv_area_t* area,
@@ -66,6 +90,8 @@ bool DisplayManager::begin()
     gfx.fillScreen(TFT_BLACK);
     delay(100);
 
+    // Preserve the board's known-good boot command. Runtime state applies
+    // the requested percentage after the UI and serial link are ready.
     sendI2CCommand(0x10);
     delay(100);
 

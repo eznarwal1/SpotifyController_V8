@@ -8,6 +8,7 @@ class DisplayManager
 public:
     bool begin();
     void update();
+    static void setBrightness(uint8_t percent);
 
 private:
     static void flush(
