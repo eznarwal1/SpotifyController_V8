@@ -80,10 +80,10 @@ def render_view(
     mixer_index: int,
     themes: list[tuple[str, dict]],
     theme_index: int,
-    brightness: int = 50,
     lyric_lines: tuple[str, ...] = (),
     lyric_active_index: int = -1,
     lyric_status: str = "",
+    lyric_track: str = "",
 ) -> bytes:
     bg = tuple(theme["background"])
     panel = tuple(theme["panel"])
@@ -101,40 +101,52 @@ def render_view(
     row_font = _font(17)
     small_font = _font(14)
     lyric_font = _font(17)
-
-    if view == "lyrics":
-        # RGB565 has no alpha channel. A chroma-keyed checker pattern gives
-        # the rounded panel a lightweight translucent appearance while the
-        # album-art background remains visible underneath.
-        panel_mask = Image.new("1", (WIDTH, HEIGHT), 0)
-        mask_draw = ImageDraw.Draw(panel_mask)
-        mask_draw.rounded_rectangle(
-            (2, 2, WIDTH - 3, HEIGHT - 3),
-            radius=14,
-            fill=1,
-        )
-        pixels = image.load()
-        mask_pixels = panel_mask.load()
-        for y in range(HEIGHT):
-            for x in range(WIDTH):
-                if mask_pixels[x, y] and ((x + y) & 3) != 0:
-                    pixels[x, y] = panel
+    discord_heading = (242, 243, 245)
+    discord_secondary = (181, 186, 193)
+    discord_row = (43, 45, 49)
+    discord_accent = (88, 101, 242)
 
     headings = {
         "queue": "Queue",
-        "settings": "Settings",
-        "lyrics": "Lyrics",
     }
-    draw.text((8, 4), headings.get(view, "Now Playing"), fill=primary, font=title_font)
-    draw.line((8, 36, WIDTH - 8, 36), fill=panel, width=2)
+    if view == "lyrics":
+        lyrics_heading_font = _font(20)
+        context_font = _font(14)
+        draw.text(
+            (22, 14),
+            "Lyrics",
+            fill=discord_heading,
+            font=lyrics_heading_font,
+        )
+        if lyric_track:
+            draw.text(
+                (104, 17),
+                _truncate(draw, lyric_track, WIDTH - 122, context_font),
+                fill=discord_secondary,
+                font=context_font,
+            )
+    else:
+        draw.text(
+            (8, 4),
+            headings.get(view, "Now Playing"),
+            fill=primary,
+            font=title_font,
+        )
+        draw.line((8, 36, WIDTH - 8, 36), fill=panel, width=2)
 
     if view == "lyrics":
         if not lyric_lines:
             message = lyric_status or "Lyrics unavailable"
+            message = _truncate(draw, message, WIDTH - 24, row_font)
+            draw.rounded_rectangle(
+                (14, 54, WIDTH - 14, 88),
+                radius=7,
+                fill=discord_row,
+            )
             draw.text(
-                (12, 72),
-                _truncate(draw, message, WIDTH - 24, row_font),
-                fill=secondary,
+                (22, 61),
+                message,
+                fill=discord_secondary,
                 font=row_font,
             )
         else:
@@ -142,22 +154,21 @@ def render_view(
             start = max(0, active - 2)
             start = min(start, max(0, len(lyric_lines) - 6))
             visible = range(start, min(len(lyric_lines), start + 6))
-            y = 44
+            y = 47
             for index in visible:
-                line = _truncate(draw, lyric_lines[index], WIDTH - 24, lyric_font)
-                if index == active:
-                    draw.rounded_rectangle(
-                        (6, y - 3, WIDTH - 6, y + 24),
-                        radius=7,
-                        fill=panel,
-                    )
+                line = _truncate(draw, lyric_lines[index], WIDTH - 52, lyric_font)
+                draw.rounded_rectangle(
+                    (14, y - 3, WIDTH - 14, y + 24),
+                    radius=7,
+                    fill=discord_accent if index == active else discord_row,
+                )
                 draw.text(
-                    (12, y),
+                    (22, y),
                     line,
-                    fill=accent if index == active else secondary,
+                    fill=discord_heading if index == active else discord_secondary,
                     font=lyric_font,
                 )
-                y += 32
+                y += 30
 
     elif view == "queue":
         source_text = queue_source or "Current source"
@@ -186,20 +197,6 @@ def render_view(
                 prefix = "▶ " if selected else "   "
                 text = _truncate(draw, prefix + item, WIDTH - 24, row_font)
                 draw.text((12, y), text, fill=accent if selected else primary, font=row_font)
-
-    elif view == "settings":
-        brightness = max(0, min(100, int(brightness)))
-        draw.text((12, 54), f"Brightness: {brightness}%", fill=primary, font=row_font)
-        # Draw a simple slider representation
-        slider_x = 12
-        slider_y = 80
-        slider_w = WIDTH - 24
-        slider_h = 18
-        draw.rounded_rectangle((slider_x, slider_y, slider_x + slider_w, slider_y + slider_h), radius=6, fill=panel)
-        knob_x = slider_x + int(slider_w * (brightness / 100.0))
-        knob_w = 12
-        draw.ellipse((knob_x - knob_w//2, slider_y - 6, knob_x + knob_w//2, slider_y + slider_h + 6), fill=accent)
-
 
     # themes page removed; themes data is not rendered as a page
 

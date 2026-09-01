@@ -1,4 +1,4 @@
-from lyrics import LyricLine, Lyrics, parse_synced_lyrics
+from lyrics import LyricLine, Lyrics, parse_synced_lyrics, select_best_record
 
 
 def test_parse_and_sync() -> None:
@@ -16,6 +16,26 @@ def test_parse_and_sync() -> None:
     assert lyrics.active_index(21) == 2
 
 
+def test_native_lyrics_preferred_over_romanized() -> None:
+    records = [
+        {
+            "trackName": "Right Now (Romanized)",
+            "artistName": "NewJeans",
+            "duration": 160,
+            "syncedLyrics": "[00:01.00]mada mada",
+        },
+        {
+            "trackName": "Right Now",
+            "artistName": "NewJeans",
+            "duration": 160,
+            "syncedLyrics": "[00:01.00]まだまだ",
+        },
+    ]
+    selected = select_best_record(records, "Right Now", "NewJeans", 160)
+    assert selected is records[1]
+
+
 if __name__ == "__main__":
     test_parse_and_sync()
+    test_native_lyrics_preferred_over_romanized()
     print("Lyrics tests passed.")

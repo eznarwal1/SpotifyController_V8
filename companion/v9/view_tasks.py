@@ -22,6 +22,17 @@ from v9.navigation_bridge import V8ViewNavigator
 from v9.queue_controller import QueueController
 
 LogFn = Callable[[str], None]
+SERIAL_BAUDRATE = 2_000_000
+SERIAL_BITS_PER_BYTE = 10
+LYRIC_RENDER_ALLOWANCE_SECONDS = 0.15
+LYRIC_FRAME_LEAD_SECONDS = (
+    VIEW_WIDTH
+    * VIEW_HEIGHT
+    * 2
+    * SERIAL_BITS_PER_BYTE
+    / SERIAL_BAUDRATE
+    + LYRIC_RENDER_ALLOWANCE_SECONDS
+)
 
 
 async def v8_view_loop(
@@ -64,17 +75,17 @@ async def v8_view_loop(
             await asyncio.sleep(0.25)
             continue
 
-        state.brightness = v8.state.brightness
-
         lyric_lines: tuple[str, ...] = ()
         lyric_active_index = -1
         lyric_status = ""
+        lyric_track = ""
 
         if view == "lyrics":
             media = state.media
             if not state.spotify_connected or not media.title:
                 lyric_status = "No active track"
             else:
+                lyric_track = media.title
                 current_track_key = (
                     media.title,
                     media.artist,
@@ -93,7 +104,11 @@ async def v8_view_loop(
 
                 projected_position = float(lyric_position)
                 if media.is_playing:
-                    projected_position += now - lyric_position_at
+                    projected_position += (
+                        now
+                        - lyric_position_at
+                        + LYRIC_FRAME_LEAD_SECONDS
+                    )
 
                 lyrics = await asyncio.to_thread(
                     lyrics_client.get,
@@ -147,10 +162,10 @@ async def v8_view_loop(
             queue_available,
             queue_status,
             v8.state.queue_index,
-            v8.state.brightness,
             lyric_lines,
             lyric_active_index,
             lyric_status,
+            lyric_track,
             theme_index,
             active_theme.get("name", ""),
             serial_manager.is_connected,
@@ -174,10 +189,10 @@ async def v8_view_loop(
                     mixer_index=0,
                     themes=themes,
                     theme_index=theme_index,
-                    brightness=v8.state.brightness,
                     lyric_lines=lyric_lines,
                     lyric_active_index=lyric_active_index,
                     lyric_status=lyric_status,
+                    lyric_track=lyric_track,
                 )
 
                 sent = await asyncio.to_thread(

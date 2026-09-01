@@ -103,6 +103,7 @@ private:
     lv_obj_t* headphoneSlash_;
     lv_obj_t* viewButton_;
     lv_obj_t* viewLabel_;
+    lv_obj_t* viewBackdrop_;
     lv_obj_t* viewImageObject_;
     lv_obj_t* backgroundImageObject_;
     lv_obj_t* queuePanel_;

@@ -8,9 +8,10 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-API_URL = "https://lrclib.net/api/get"
+API_URL = "https://lrclib.net/api"
 USER_AGENT = "SpotifyControllerDisplay/8.0 (personal desktop display)"
 TIMESTAMP = re.compile(r"\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]")
+ROMANIZED_MARKERS = ("romanized", "romanised", "romanization", "romaji")
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +56,57 @@ def parse_synced_lyrics(value: str) -> tuple[LyricLine, ...]:
     return tuple(sorted(parsed, key=lambda line: line.start_seconds))
 
 
+def _normalized(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold()).strip()
+
+
+def select_best_record(
+    records: object,
+    title: str,
+    artist: str,
+    duration_seconds: int,
+) -> dict | None:
+    if not isinstance(records, list):
+        return None
+
+    wanted_title = _normalized(title)
+    wanted_artist = _normalized(artist)
+    ranked: list[tuple[tuple[int, int, int], dict]] = []
+
+    for record in records:
+        if not isinstance(record, dict) or not record.get("syncedLyrics"):
+            continue
+
+        record_title = _normalized(record.get("trackName"))
+        record_artist = _normalized(record.get("artistName"))
+        metadata_score = 0
+        metadata_score += 400 if record_title == wanted_title else 0
+        metadata_score += 300 if record_artist == wanted_artist else 0
+
+        try:
+            difference = abs(float(record.get("duration", 0)) - duration_seconds)
+        except (TypeError, ValueError):
+            difference = 999.0
+        metadata_score += max(0, 200 - int(difference * 25))
+
+        labels = " ".join(
+            str(record.get(field, "")).casefold()
+            for field in ("trackName", "albumName")
+        )
+        is_romanized = any(marker in labels for marker in ROMANIZED_MARKERS)
+        lyrics_text = str(record.get("syncedLyrics") or "")
+        native_characters = sum(
+            character.isalpha() and ord(character) > 0x024F
+            for character in lyrics_text
+        )
+
+        ranked.append(
+            ((metadata_score, 0 if is_romanized else 1, native_characters), record)
+        )
+
+    return max(ranked, default=(None, None), key=lambda item: item[0])[1]
+
+
 class LyricsClient:
     def __init__(self) -> None:
         self._cache: dict[tuple[str, str, str, int], Lyrics] = {}
@@ -93,12 +145,10 @@ class LyricsClient:
             {
                 "track_name": title.strip(),
                 "artist_name": artist.strip(),
-                "album_name": album.strip(),
-                "duration": int(duration_seconds),
             }
         )
         request = Request(
-            f"{API_URL}?{query}",
+            f"{API_URL}/search?{query}",
             headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
         )
 
@@ -112,10 +162,19 @@ class LyricsClient:
         except (OSError, URLError, ValueError, json.JSONDecodeError):
             return Lyrics(status="Lyrics service unavailable")
 
-        if payload.get("instrumental"):
+        record = select_best_record(
+            payload,
+            title,
+            artist,
+            duration_seconds,
+        )
+        if record is None:
+            return Lyrics(status="Synced lyrics unavailable")
+
+        if record.get("instrumental"):
             return Lyrics(status="Instrumental")
 
-        lines = parse_synced_lyrics(payload.get("syncedLyrics") or "")
+        lines = parse_synced_lyrics(record.get("syncedLyrics") or "")
         if not lines:
             return Lyrics(status="Synced lyrics unavailable")
         return Lyrics(lines=lines, status="")

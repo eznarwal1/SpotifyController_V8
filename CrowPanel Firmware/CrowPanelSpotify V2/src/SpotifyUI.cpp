@@ -130,6 +130,7 @@ SpotifyUI::SpotifyUI()
       headphoneSlash_(nullptr),
       viewButton_(nullptr),
       viewLabel_(nullptr),
+      viewBackdrop_(nullptr),
       viewImageObject_(nullptr),
       backgroundImageObject_(nullptr),
       queuePanel_(nullptr),
@@ -368,6 +369,24 @@ void SpotifyUI::create(lv_obj_t* screen)
         LV_OBJ_FLAG_HIDDEN
     );
 
+    viewBackdrop_ = lv_obj_create(screen);
+    lv_obj_set_size(
+        viewBackdrop_,
+        ViewImage::WIDTH,
+        ViewImage::HEIGHT
+    );
+    lv_obj_set_pos(viewBackdrop_, 290, 70);
+    lv_obj_set_style_bg_color(
+        viewBackdrop_,
+        lv_color_hex(0x1E1F22),
+        LV_PART_MAIN
+    );
+    lv_obj_set_style_bg_opa(viewBackdrop_, LV_OPA_90, LV_PART_MAIN);
+    lv_obj_set_style_radius(viewBackdrop_, 14, LV_PART_MAIN);
+    lv_obj_set_style_border_width(viewBackdrop_, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(viewBackdrop_, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(viewBackdrop_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(viewBackdrop_, LV_OBJ_FLAG_HIDDEN);
 
     viewImageObject_ = lv_img_create(screen);
     lv_obj_set_size(
@@ -1764,6 +1783,17 @@ void SpotifyUI::applyState(const AppState& state)
     if (progressChanged)
     {
         updateProgressNow(true);
+    }
+
+    if (
+        metadataChanged &&
+        !state_.viewMode.equalsIgnoreCase("now_playing")
+    )
+    {
+        // Hidden Now Playing labels still invalidate their old pixel areas
+        // when a track changes. Repaint the complete utility page so those
+        // stale pixels cannot show through chroma-keyed lyrics frames.
+        lv_obj_invalidate(lv_scr_act());
     }
 }
 
