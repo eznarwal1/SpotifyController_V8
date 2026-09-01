@@ -96,7 +96,9 @@ void ViewImage::applyPending()
     descriptor_.header.always_zero = 0;
     descriptor_.header.w = WIDTH;
     descriptor_.header.h = HEIGHT;
-    descriptor_.header.cf = LV_IMG_CF_TRUE_COLOR;
+    // Lyrics frames use LV_COLOR_CHROMA_KEY pixels so the album-art
+    // background remains visible around and through their rounded panel.
+    descriptor_.header.cf = LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED;
     descriptor_.data_size = BYTE_COUNT;
     descriptor_.data = frontBuffer_;
 

@@ -6,6 +6,7 @@ from themes import ThemeManager
 
 VIEWS = (
     "now_playing",
+    "lyrics",
     "queue",
     "settings",
     "discord",

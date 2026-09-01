@@ -43,6 +43,9 @@ void SpotifyUI::updatePageVisibility()
     const bool settingsPage =
         state_.viewMode.equalsIgnoreCase("settings");
 
+    const bool lyricsPage =
+        state_.viewMode.equalsIgnoreCase("lyrics");
+
     // V9 Queue, Mixer, and Discord are native. Themes still uses the legacy bitmap.
     setObjectVisible(
         viewImageObject_,
@@ -88,6 +91,10 @@ void SpotifyUI::updatePageVisibility()
     else if (state_.viewMode.equalsIgnoreCase("queue"))
     {
         lv_label_set_text(viewLabel_, "Queue");
+    }
+    else if (lyricsPage)
+    {
+        lv_label_set_text(viewLabel_, "Lyrics");
     }
     else if (state_.viewMode.equalsIgnoreCase("mixer"))
     {

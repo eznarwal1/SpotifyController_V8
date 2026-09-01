@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Callable
 
 from serial_manager import SerialManager
+from lyrics import LyricsClient
 from spotify_controller import SpotifyController
 from ui_state import AppState
 from v8_controller import V8Controller
@@ -34,6 +36,11 @@ async def v8_view_loop(
     log: LogFn,
 ) -> None:
     last_render_key: tuple | None = None
+    lyrics_client = LyricsClient()
+    lyric_track_key: tuple[str, str, int] | None = None
+    lyric_position = 0
+    lyric_position_at = time.monotonic()
+    lyric_was_playing = False
 
     while not stop_event.is_set():
         view = view_navigator.current
@@ -58,6 +65,48 @@ async def v8_view_loop(
             continue
 
         state.brightness = v8.state.brightness
+
+        lyric_lines: tuple[str, ...] = ()
+        lyric_active_index = -1
+        lyric_status = ""
+
+        if view == "lyrics":
+            media = state.media
+            if not state.spotify_connected or not media.title:
+                lyric_status = "No active track"
+            else:
+                current_track_key = (
+                    media.title,
+                    media.artist,
+                    media.duration_seconds,
+                )
+                now = time.monotonic()
+                if (
+                    current_track_key != lyric_track_key
+                    or media.position_seconds != lyric_position
+                    or media.is_playing != lyric_was_playing
+                ):
+                    lyric_track_key = current_track_key
+                    lyric_position = media.position_seconds
+                    lyric_position_at = now
+                    lyric_was_playing = media.is_playing
+
+                projected_position = float(lyric_position)
+                if media.is_playing:
+                    projected_position += now - lyric_position_at
+
+                lyrics = await asyncio.to_thread(
+                    lyrics_client.get,
+                    media.title,
+                    media.artist,
+                    media.album,
+                    media.duration_seconds,
+                )
+                lyric_lines = tuple(line.text for line in lyrics.lines)
+                lyric_active_index = lyrics.active_index(
+                    projected_position
+                )
+                lyric_status = lyrics.status
 
         if view == "discord":
             server, channel, messages, discord_source = (
@@ -99,6 +148,9 @@ async def v8_view_loop(
             queue_status,
             v8.state.queue_index,
             v8.state.brightness,
+            lyric_lines,
+            lyric_active_index,
+            lyric_status,
             theme_index,
             active_theme.get("name", ""),
             serial_manager.is_connected,
@@ -123,6 +175,9 @@ async def v8_view_loop(
                     themes=themes,
                     theme_index=theme_index,
                     brightness=v8.state.brightness,
+                    lyric_lines=lyric_lines,
+                    lyric_active_index=lyric_active_index,
+                    lyric_status=lyric_status,
                 )
 
                 sent = await asyncio.to_thread(
@@ -141,4 +196,4 @@ async def v8_view_loop(
                     f"{type(exc).__name__}: {exc}"
                 )
 
-        await asyncio.sleep(0.25)
+        await asyncio.sleep(0.10 if view == "lyrics" else 0.25)

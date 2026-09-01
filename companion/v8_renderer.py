@@ -3,25 +3,30 @@ from __future__ import annotations
 import os
 import struct
 from collections.abc import Iterable
+from functools import lru_cache
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 WIDTH = 470
-HEIGHT = 160
+HEIGHT = 230
+CHROMA_KEY = (0, 255, 0)
 
 
 def _fonts() -> Iterable[Path]:
     root = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
     for name in (
-        "segoeui.ttf",
+        "ARIALUNI.ttf",
         "msyh.ttc",
         "malgun.ttf",
         "meiryo.ttc",
+        "segoeui.ttf",
+        "arial.ttf",
     ):
         yield root / name
 
 
+@lru_cache(maxsize=8)
 def _font(size: int):
     for path in _fonts():
         if path.exists():
@@ -76,6 +81,9 @@ def render_view(
     themes: list[tuple[str, dict]],
     theme_index: int,
     brightness: int = 50,
+    lyric_lines: tuple[str, ...] = (),
+    lyric_active_index: int = -1,
+    lyric_status: str = "",
 ) -> bytes:
     bg = tuple(theme["background"])
     panel = tuple(theme["panel"])
@@ -83,20 +91,75 @@ def render_view(
     secondary = tuple(theme["secondary"])
     accent = tuple(theme["accent"])
 
-    image = Image.new("RGB", (WIDTH, HEIGHT), bg)
+    image = Image.new(
+        "RGB",
+        (WIDTH, HEIGHT),
+        CHROMA_KEY if view == "lyrics" else bg,
+    )
     draw = ImageDraw.Draw(image)
     title_font = _font(24)
     row_font = _font(17)
     small_font = _font(14)
+    lyric_font = _font(17)
+
+    if view == "lyrics":
+        # RGB565 has no alpha channel. A chroma-keyed checker pattern gives
+        # the rounded panel a lightweight translucent appearance while the
+        # album-art background remains visible underneath.
+        panel_mask = Image.new("1", (WIDTH, HEIGHT), 0)
+        mask_draw = ImageDraw.Draw(panel_mask)
+        mask_draw.rounded_rectangle(
+            (2, 2, WIDTH - 3, HEIGHT - 3),
+            radius=14,
+            fill=1,
+        )
+        pixels = image.load()
+        mask_pixels = panel_mask.load()
+        for y in range(HEIGHT):
+            for x in range(WIDTH):
+                if mask_pixels[x, y] and ((x + y) & 3) != 0:
+                    pixels[x, y] = panel
 
     headings = {
         "queue": "Queue",
         "settings": "Settings",
+        "lyrics": "Lyrics",
     }
     draw.text((8, 4), headings.get(view, "Now Playing"), fill=primary, font=title_font)
     draw.line((8, 36, WIDTH - 8, 36), fill=panel, width=2)
 
-    if view == "queue":
+    if view == "lyrics":
+        if not lyric_lines:
+            message = lyric_status or "Lyrics unavailable"
+            draw.text(
+                (12, 72),
+                _truncate(draw, message, WIDTH - 24, row_font),
+                fill=secondary,
+                font=row_font,
+            )
+        else:
+            active = max(0, min(lyric_active_index, len(lyric_lines) - 1))
+            start = max(0, active - 2)
+            start = min(start, max(0, len(lyric_lines) - 6))
+            visible = range(start, min(len(lyric_lines), start + 6))
+            y = 44
+            for index in visible:
+                line = _truncate(draw, lyric_lines[index], WIDTH - 24, lyric_font)
+                if index == active:
+                    draw.rounded_rectangle(
+                        (6, y - 3, WIDTH - 6, y + 24),
+                        radius=7,
+                        fill=panel,
+                    )
+                draw.text(
+                    (12, y),
+                    line,
+                    fill=accent if index == active else secondary,
+                    font=lyric_font,
+                )
+                y += 32
+
+    elif view == "queue":
         source_text = queue_source or "Current source"
         draw.text(
             (12, 42),
@@ -140,10 +203,11 @@ def render_view(
 
     # themes page removed; themes data is not rendered as a page
 
-    draw.text(
-        (8, HEIGHT - 18),
-        "Use the on-screen controls below",
-        fill=secondary,
-        font=small_font,
-    )
+    if view != "lyrics":
+        draw.text(
+            (8, HEIGHT - 18),
+            "Use the on-screen controls below",
+            fill=secondary,
+            font=small_font,
+        )
     return _rgb565(image)
