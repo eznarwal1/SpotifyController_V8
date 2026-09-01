@@ -372,16 +372,16 @@ void SpotifyUI::create(lv_obj_t* screen)
     viewBackdrop_ = lv_obj_create(screen);
     lv_obj_set_size(
         viewBackdrop_,
-        ViewImage::WIDTH,
-        ViewImage::HEIGHT
+        720,
+        340
     );
-    lv_obj_set_pos(viewBackdrop_, 290, 70);
+    lv_obj_set_pos(viewBackdrop_, 40, 70);
     lv_obj_set_style_bg_color(
         viewBackdrop_,
-        lv_color_hex(0x1E1F22),
+        lv_color_hex(0x121212),
         LV_PART_MAIN
     );
-    lv_obj_set_style_bg_opa(viewBackdrop_, LV_OPA_90, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(viewBackdrop_, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_radius(viewBackdrop_, 14, LV_PART_MAIN);
     lv_obj_set_style_border_width(viewBackdrop_, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(viewBackdrop_, 0, LV_PART_MAIN);
@@ -394,7 +394,7 @@ void SpotifyUI::create(lv_obj_t* screen)
         ViewImage::WIDTH,
         ViewImage::HEIGHT
     );
-    lv_obj_set_pos(viewImageObject_, 290, 70);
+    lv_obj_set_pos(viewImageObject_, 100, 90);
     lv_obj_add_flag(
         viewImageObject_,
         LV_OBJ_FLAG_HIDDEN

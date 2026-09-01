@@ -78,14 +78,12 @@ async def v8_view_loop(
         lyric_lines: tuple[str, ...] = ()
         lyric_active_index = -1
         lyric_status = ""
-        lyric_track = ""
 
         if view == "lyrics":
             media = state.media
             if not state.spotify_connected or not media.title:
                 lyric_status = "No active track"
             else:
-                lyric_track = media.title
                 current_track_key = (
                     media.title,
                     media.artist,
@@ -165,7 +163,6 @@ async def v8_view_loop(
             lyric_lines,
             lyric_active_index,
             lyric_status,
-            lyric_track,
             theme_index,
             active_theme.get("name", ""),
             serial_manager.is_connected,
@@ -192,7 +189,6 @@ async def v8_view_loop(
                     lyric_lines=lyric_lines,
                     lyric_active_index=lyric_active_index,
                     lyric_status=lyric_status,
-                    lyric_track=lyric_track,
                 )
 
                 sent = await asyncio.to_thread(

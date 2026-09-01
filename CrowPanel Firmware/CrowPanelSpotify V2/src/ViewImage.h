@@ -6,8 +6,8 @@
 class ViewImage
 {
 public:
-    static constexpr uint16_t WIDTH = 470;
-    static constexpr uint16_t HEIGHT = 230;
+    static constexpr uint16_t WIDTH = 600;
+    static constexpr uint16_t HEIGHT = 300;
     static constexpr size_t BYTE_COUNT =
         static_cast<size_t>(WIDTH) * HEIGHT * 2U;
 

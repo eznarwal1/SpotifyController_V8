@@ -8,8 +8,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-WIDTH = 470
-HEIGHT = 230
+WIDTH = 600
+HEIGHT = 300
 CHROMA_KEY = (0, 255, 0)
 
 
@@ -83,7 +83,6 @@ def render_view(
     lyric_lines: tuple[str, ...] = (),
     lyric_active_index: int = -1,
     lyric_status: str = "",
-    lyric_track: str = "",
 ) -> bytes:
     bg = tuple(theme["background"])
     panel = tuple(theme["panel"])
@@ -100,75 +99,61 @@ def render_view(
     title_font = _font(24)
     row_font = _font(17)
     small_font = _font(14)
-    lyric_font = _font(17)
-    discord_heading = (242, 243, 245)
-    discord_secondary = (181, 186, 193)
-    discord_row = (43, 45, 49)
-    discord_accent = (88, 101, 242)
-
+    lyric_font = _font(22)
     headings = {
         "queue": "Queue",
+        "lyrics": "Lyrics",
     }
     if view == "lyrics":
-        lyrics_heading_font = _font(20)
-        context_font = _font(14)
-        draw.text(
-            (22, 14),
-            "Lyrics",
-            fill=discord_heading,
-            font=lyrics_heading_font,
-        )
-        if lyric_track:
-            draw.text(
-                (104, 17),
-                _truncate(draw, lyric_track, WIDTH - 122, context_font),
-                fill=discord_secondary,
-                font=context_font,
-            )
-    else:
-        draw.text(
-            (8, 4),
-            headings.get(view, "Now Playing"),
-            fill=primary,
-            font=title_font,
-        )
-        draw.line((8, 36, WIDTH - 8, 36), fill=panel, width=2)
+        draw.rounded_rectangle((7, 5, 120, 41), radius=8, fill=panel)
+        title_font = _font(28)
+    draw.text((8, 4), headings.get(view, "Now Playing"), fill=primary, font=title_font)
+    draw.line((8, 36, WIDTH - 8, 36), fill=panel, width=2)
 
     if view == "lyrics":
         if not lyric_lines:
             message = lyric_status or "Lyrics unavailable"
             message = _truncate(draw, message, WIDTH - 24, row_font)
+            bounds = draw.textbbox((18, 82), message, font=lyric_font)
             draw.rounded_rectangle(
-                (14, 54, WIDTH - 14, 88),
-                radius=7,
-                fill=discord_row,
+                (12, 76, min(WIDTH - 12, bounds[2] + 8), 112),
+                radius=8,
+                fill=panel,
             )
             draw.text(
-                (22, 61),
+                (18, 82),
                 message,
-                fill=discord_secondary,
-                font=row_font,
+                fill=secondary,
+                font=lyric_font,
             )
         else:
             active = max(0, min(lyric_active_index, len(lyric_lines) - 1))
             start = max(0, active - 2)
             start = min(start, max(0, len(lyric_lines) - 6))
             visible = range(start, min(len(lyric_lines), start + 6))
-            y = 47
+            y = 55
             for index in visible:
-                line = _truncate(draw, lyric_lines[index], WIDTH - 52, lyric_font)
-                draw.rounded_rectangle(
-                    (14, y - 3, WIDTH - 14, y + 24),
-                    radius=7,
-                    fill=discord_accent if index == active else discord_row,
-                )
+                line = _truncate(draw, lyric_lines[index], WIDTH - 36, lyric_font)
+                if index == active:
+                    draw.rounded_rectangle(
+                        (10, y - 5, WIDTH - 10, y + 30),
+                        radius=9,
+                        fill=panel,
+                    )
+                else:
+                    bounds = draw.textbbox((18, y), line, font=lyric_font)
+                    draw.rounded_rectangle(
+                        (12, y - 4, min(WIDTH - 12, bounds[2] + 7), y + 29),
+                        radius=7,
+                        fill=panel,
+                    )
                 draw.text(
-                    (22, y),
+                    (18, y),
                     line,
-                    fill=discord_heading if index == active else discord_secondary,
+                    fill=accent if index == active else secondary,
                     font=lyric_font,
                 )
-                y += 30
+                y += 40
 
     elif view == "queue":
         source_text = queue_source or "Current source"
