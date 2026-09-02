@@ -35,11 +35,6 @@ After setup_and_run.bat has completed:
    Get-ChildItem *.ps1 | Unblock-File
    .\install_startup.ps1
 
-Security note
--------------
-The uploaded config.py contained a Spotify client secret. It was intentionally
-not copied into this package. Rotate that secret in the Spotify developer
-dashboard if it is still active. V6 does not require Spotify API credentials.
 
 Firmware
 --------
