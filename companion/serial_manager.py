@@ -35,6 +35,9 @@ class SerialManager:
         self._serial: serial.Serial | None = None
         self._last_port: str | None = None
         self._write_lock = threading.Lock()
+        self._latency_lock = threading.Lock()
+        self._view_sent_at: float | None = None
+        self._view_latency_seconds: float | None = None
 
     @property
     def is_connected(self) -> bool:
@@ -45,6 +48,27 @@ class SerialManager:
         if self._serial is not None:
             return self._serial.port
         return self._last_port
+
+    @property
+    def view_latency_seconds(self) -> float | None:
+        with self._latency_lock:
+            return self._view_latency_seconds
+
+    def record_view_applied(self) -> tuple[float, float] | None:
+        """Record an ESP32 acknowledgement and return (sample, average)."""
+        now = time.monotonic()
+        with self._latency_lock:
+            if self._view_sent_at is None:
+                return None
+            sample = now - self._view_sent_at
+            self._view_sent_at = None
+            if self._view_latency_seconds is None:
+                self._view_latency_seconds = sample
+            else:
+                self._view_latency_seconds = (
+                    self._view_latency_seconds * 0.75 + sample * 0.25
+                )
+            return sample, self._view_latency_seconds
 
     @staticmethod
     def list_available_ports() -> list[tuple[str, str]]:
@@ -289,6 +313,8 @@ class SerialManager:
             return False
 
         try:
+            with self._latency_lock:
+                self._view_sent_at = time.monotonic()
             with self._write_lock:
                 for offset in range(0, len(packet), chunk_size):
                     self._serial.write(packet[offset : offset + chunk_size])

@@ -31,6 +31,17 @@ async def process_display_command(
     if not isinstance(message, dict):
         return
 
+    if message.get("type") == "event" and message.get("event") == "view_applied":
+        measurement = serial_manager.record_view_applied()
+        if measurement is not None:
+            sample, average = measurement
+            log(
+                "Display view latency: "
+                f"{sample * 1000:.0f} ms "
+                f"(rolling {average * 1000:.0f} ms)"
+            )
+        return
+
     command = message.get("command")
     if not isinstance(command, str):
         return

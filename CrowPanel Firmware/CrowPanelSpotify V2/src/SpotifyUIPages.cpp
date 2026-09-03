@@ -11,7 +11,10 @@ void SpotifyUI::updatePageVisibility()
 
     // Navigation stays available on every page.
     setObjectVisible(viewButton_, true);
-    setObjectVisible(sourceButton_, true);
+    setObjectVisible(
+        sourceButton_,
+        !state_.viewMode.equalsIgnoreCase("lyrics")
+    );
 
     // Artwork, metadata, playback controls, progress, Discord controls,
     // and status all share the Now Playing page.
@@ -110,10 +113,7 @@ void SpotifyUI::updatePageVisibility()
         lv_label_set_text(viewLabel_, "View");
     }
 
-    /*
-     * Page changes are infrequent. Invalidate once after all objects have
-     * been shown/hidden so LVGL clears stale pixels in one coordinated pass.
-     */
+    // Redraw once after all page objects have been shown or hidden.
     lv_obj_invalidate(lv_scr_act());
 }
 

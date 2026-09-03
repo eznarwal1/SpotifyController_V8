@@ -83,7 +83,6 @@ void MetadataImage::commit()
     descriptor_.data = frontBuffer_;
 
     lv_img_set_src(imageObject_, &descriptor_);
-    lv_obj_clear_flag(imageObject_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_invalidate(imageObject_);
 }
 

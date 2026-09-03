@@ -381,7 +381,7 @@ void SpotifyUI::create(lv_obj_t* screen)
         lv_color_hex(0x121212),
         LV_PART_MAIN
     );
-    lv_obj_set_style_bg_opa(viewBackdrop_, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(viewBackdrop_, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_radius(viewBackdrop_, 14, LV_PART_MAIN);
     lv_obj_set_style_border_width(viewBackdrop_, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(viewBackdrop_, 0, LV_PART_MAIN);
@@ -1785,16 +1785,6 @@ void SpotifyUI::applyState(const AppState& state)
         updateProgressNow(true);
     }
 
-    if (
-        metadataChanged &&
-        !state_.viewMode.equalsIgnoreCase("now_playing")
-    )
-    {
-        // Hidden Now Playing labels still invalidate their old pixel areas
-        // when a track changes. Repaint the complete utility page so those
-        // stale pixels cannot show through chroma-keyed lyrics frames.
-        lv_obj_invalidate(lv_scr_act());
-    }
 }
 
 void SpotifyUI::updateSourceButton()

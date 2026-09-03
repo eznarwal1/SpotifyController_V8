@@ -81,11 +81,11 @@ void ViewImage::commit()
     receiveBuffer_ = nullptr;
 }
 
-void ViewImage::applyPending()
+bool ViewImage::applyPending()
 {
     if (pendingBuffer_ == nullptr || imageObject_ == nullptr)
     {
-        return;
+        return false;
     }
 
     uint8_t* previousFront = frontBuffer_;
@@ -96,14 +96,11 @@ void ViewImage::applyPending()
     descriptor_.header.always_zero = 0;
     descriptor_.header.w = WIDTH;
     descriptor_.header.h = HEIGHT;
-    // Lyrics frames use LV_COLOR_CHROMA_KEY pixels so the album-art
-    // background remains visible around and through their rounded panel.
-    descriptor_.header.cf = LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED;
+    descriptor_.header.cf = LV_IMG_CF_TRUE_COLOR;
     descriptor_.data_size = BYTE_COUNT;
     descriptor_.data = frontBuffer_;
 
     lv_img_set_src(imageObject_, &descriptor_);
-    lv_obj_clear_flag(imageObject_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_invalidate(imageObject_);
 
     // LVGL has accepted the new source. The previous buffer is no longer used
@@ -112,6 +109,8 @@ void ViewImage::applyPending()
     {
         heap_caps_free(previousFront);
     }
+
+    return true;
 }
 
 void ViewImage::cancel()

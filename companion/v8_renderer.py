@@ -7,10 +7,10 @@ from functools import lru_cache
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+from metadata_renderer import ui_background_crop
 
 WIDTH = 600
 HEIGHT = 300
-CHROMA_KEY = (0, 255, 0)
 
 
 def _fonts() -> Iterable[Path]:
@@ -90,10 +90,10 @@ def render_view(
     secondary = tuple(theme["secondary"])
     accent = tuple(theme["accent"])
 
-    image = Image.new(
-        "RGB",
-        (WIDTH, HEIGHT),
-        CHROMA_KEY if view == "lyrics" else bg,
+    image = (
+        ui_background_crop(100, 90, WIDTH, HEIGHT)
+        if view == "lyrics"
+        else Image.new("RGB", (WIDTH, HEIGHT), bg)
     )
     draw = ImageDraw.Draw(image)
     title_font = _font(24)
@@ -105,21 +105,22 @@ def render_view(
         "lyrics": "Lyrics",
     }
     if view == "lyrics":
-        draw.rounded_rectangle((7, 5, 120, 41), radius=8, fill=panel)
         title_font = _font(28)
-    draw.text((8, 4), headings.get(view, "Now Playing"), fill=primary, font=title_font)
-    draw.line((8, 36, WIDTH - 8, 36), fill=panel, width=2)
+        draw.text(
+            (18, 4),
+            "Lyrics",
+            fill=primary,
+            font=title_font,
+        )
+        draw.line((18, 42, WIDTH - 18, 42), fill=panel, width=2)
+    else:
+        draw.text((8, 4), headings.get(view, "Now Playing"), fill=primary, font=title_font)
+        draw.line((8, 36, WIDTH - 8, 36), fill=panel, width=2)
 
     if view == "lyrics":
         if not lyric_lines:
             message = lyric_status or "Lyrics unavailable"
             message = _truncate(draw, message, WIDTH - 24, row_font)
-            bounds = draw.textbbox((18, 82), message, font=lyric_font)
-            draw.rounded_rectangle(
-                (12, 76, min(WIDTH - 12, bounds[2] + 8), 112),
-                radius=8,
-                fill=panel,
-            )
             draw.text(
                 (18, 82),
                 message,
@@ -134,19 +135,6 @@ def render_view(
             y = 55
             for index in visible:
                 line = _truncate(draw, lyric_lines[index], WIDTH - 36, lyric_font)
-                if index == active:
-                    draw.rounded_rectangle(
-                        (10, y - 5, WIDTH - 10, y + 30),
-                        radius=9,
-                        fill=panel,
-                    )
-                else:
-                    bounds = draw.textbbox((18, y), line, font=lyric_font)
-                    draw.rounded_rectangle(
-                        (12, y - 4, min(WIDTH - 12, bounds[2] + 7), y + 29),
-                        radius=7,
-                        fill=panel,
-                    )
                 draw.text(
                     (18, y),
                     line,

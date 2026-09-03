@@ -272,6 +272,16 @@ def _background_crop(
     )
 
 
+def ui_background_crop(
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> Image.Image:
+    """Return a copy of the exact background region shown by the display."""
+    return _background_crop(x, y, width, height)
+
+
 def render_metadata_panel(metadata: MetadataPanel) -> bytes:
     image = _background_crop(
         METADATA_X,

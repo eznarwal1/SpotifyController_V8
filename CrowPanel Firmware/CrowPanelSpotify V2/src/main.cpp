@@ -61,8 +61,14 @@ void loop()
 {
     protocol.poll();
     backgroundImage.applyPending();
-    viewImage.applyPending();
+    const bool viewApplied = viewImage.applyPending();
     spotifyUi.updateProgress();
     display.update();
+    if (viewApplied)
+    {
+        Serial.println(
+            "{\"type\":\"event\",\"event\":\"view_applied\"}"
+        );
+    }
     delay(1);
 }

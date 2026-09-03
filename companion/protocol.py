@@ -108,7 +108,14 @@ def parse_command_message(line: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
 
-    if not isinstance(message, dict) or message.get("type") != "command":
+    if not isinstance(message, dict):
+        return None
+
+    if message.get("type") == "event":
+        event = message.get("event")
+        return message if isinstance(event, str) and event.strip() else None
+
+    if message.get("type") != "command":
         return None
 
     command = message.get("command")

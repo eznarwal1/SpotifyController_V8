@@ -33,6 +33,7 @@ def main() -> None:
         '{"type":"command","command":"volume","amount":2}',
         '{"type":"command","command":"volume","amount":-2}',
         '{"type":"command","command":"mute"}',
+        '{"type":"event","event":"view_applied"}',
         'not valid json',
     ]
 
@@ -41,6 +42,11 @@ def main() -> None:
     for raw_command in sample_commands:
         parsed = parse_command_message(raw_command)
         print(f"{raw_command} -> {parsed}")
+
+    assert parse_command_message(
+        '{"type":"event","event":"view_applied"}'
+    ) == {"type": "event", "event": "view_applied"}
+    assert parse_command_message('{"type":"event"}') is None
 
 
 if __name__ == "__main__":

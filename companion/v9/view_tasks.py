@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from collections.abc import Callable
 
 from serial_manager import SerialManager
 from lyrics import LyricsClient
+from metadata_renderer import ui_background_revision
 from spotify_controller import SpotifyController
 from ui_state import AppState
 from v8_controller import V8Controller
@@ -25,6 +27,16 @@ LogFn = Callable[[str], None]
 SERIAL_BAUDRATE = 2_000_000
 SERIAL_BITS_PER_BYTE = 10
 LYRIC_RENDER_ALLOWANCE_SECONDS = 0.15
+
+
+def _manual_lyric_offset_seconds() -> float:
+    try:
+        return float(os.environ.get("LYRICS_MANUAL_OFFSET_MS", "0")) / 1000.0
+    except ValueError:
+        return 0.0
+
+
+LYRIC_MANUAL_OFFSET_SECONDS = _manual_lyric_offset_seconds()
 LYRIC_FRAME_LEAD_SECONDS = (
     VIEW_WIDTH
     * VIEW_HEIGHT
@@ -102,10 +114,18 @@ async def v8_view_loop(
 
                 projected_position = float(lyric_position)
                 if media.is_playing:
+                    transport_delay = (
+                        serial_manager.view_latency_seconds
+                        if serial_manager.view_latency_seconds is not None
+                        else LYRIC_FRAME_LEAD_SECONDS
+                        - LYRIC_RENDER_ALLOWANCE_SECONDS
+                    )
                     projected_position += (
                         now
                         - lyric_position_at
-                        + LYRIC_FRAME_LEAD_SECONDS
+                        + transport_delay
+                        + LYRIC_RENDER_ALLOWANCE_SECONDS
+                        + LYRIC_MANUAL_OFFSET_SECONDS
                     )
 
                 lyrics = await asyncio.to_thread(
@@ -163,6 +183,7 @@ async def v8_view_loop(
             lyric_lines,
             lyric_active_index,
             lyric_status,
+            ui_background_revision(),
             theme_index,
             active_theme.get("name", ""),
             serial_manager.is_connected,
