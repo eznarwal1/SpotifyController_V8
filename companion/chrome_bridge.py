@@ -267,14 +267,10 @@ class ChromeBridge:
 
             tabs = list(self._tabs.values())
 
-        return sorted(
-            tabs,
-            key=lambda tab: (
-                not tab.playing,
-                tab.source_label.casefold(),
-                tab.tab_id,
-            ),
-        )
+        # Keep source-switch order stable when playback moves between tabs.
+        # Tab IDs remain fixed for the lifetime of each Chrome tab, while
+        # playing state and media titles change constantly.
+        return sorted(tabs, key=lambda tab: tab.tab_id)
 
     def get_tab(self, tab_id: int) -> ChromeTab | None:
         for tab in self.list_tabs():
