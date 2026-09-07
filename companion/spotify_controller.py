@@ -347,11 +347,9 @@ class SpotifyController:
                     current_index = index
                     break
 
-        next_index = current_index + 1
-
-        if next_index >= len(entries):
-            self.use_automatic_source_selection()
-            return "Auto"
+        # A short press cycles actual sources continuously. Auto selection is
+        # deliberately reserved for the source button's long-press command.
+        next_index = (current_index + 1) % len(entries)
 
         kind, identifier, display_name = entries[next_index]
 
